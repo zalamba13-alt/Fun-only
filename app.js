@@ -28,7 +28,7 @@ const QUESTIONS = [
   {
     q: 'Favourite person to hug?',
     accept: (a) => a.includes('carittah') || a.includes('caritah'),
-    answer: 'Carittah 😂',
+    answer: 'Carittah ',
   },
   {
     q: 'Which country was I born in (not as easy as it seems)?',
@@ -37,8 +37,8 @@ const QUESTIONS = [
   },
   {
     q: 'Am I in love?',
-    accept: (a) => a.includes('not exactly') || a.includes('not really') || a.includes('not'),
-    answer: 'Not exactly 😂',
+    accept: (a) => a.includes('yep') || a.includes(' yessss') || a.includes('Yes'),
+    answer: 'yes',
   },
   {
     q: 'How long do I wanna live for (estimate years)?',
@@ -48,7 +48,7 @@ const QUESTIONS = [
   {
     q: 'Out of all the girls in this world, which one do I love the most?',
     accept: (a) => a.includes('bestie') || a.includes('carittah') || a.includes('caritah'),
-    answer: 'my bestie 🤪 / Carittah',
+    answer: 'my bestie / Carittah',
   },
 ];
 
