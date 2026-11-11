@@ -70,6 +70,21 @@ function showView(id) {
   views.forEach((v) => $(v).classList.toggle('active', v === id));
 }
 
+// ---- Leaderboard storage (localStorage — no server needed) ----
+const SCORES_KEY = 'tobi_scores';
+
+function loadScores() {
+  try {
+    return JSON.parse(localStorage.getItem(SCORES_KEY) || '[]');
+  } catch (e) {
+    return [];
+  }
+}
+
+function saveScores(scores) {
+  localStorage.setItem(SCORES_KEY, JSON.stringify(scores));
+}
+
 // ---- Start ----
 $('startBtn').addEventListener('click', () => {
   const name = $('nameInput').value.trim();
@@ -179,27 +194,13 @@ $('boardBtn').addEventListener('click', () => {
 $('boardBackBtn').addEventListener('click', () => showView('viewStart'));
 
 function submitScore() {
-  const payload = { name: state.name, score: state.score };
-  fetch('/api/scores', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
-  }).catch(() => {
-    // offline fallback: keep local copy
-    const local = JSON.parse(localStorage.getItem('tobi_scores') || '[]');
-    local.push({ ...payload, date: new Date().toISOString() });
-    localStorage.setItem('tobi_scores', JSON.stringify(local));
-  });
+  const scores = loadScores();
+  scores.push({ name: state.name, score: state.score, date: new Date().toISOString() });
+  saveScores(scores);
 }
 
-async function loadBoard() {
-  let scores = [];
-  try {
-    const res = await fetch('/api/scores');
-    if (res.ok) scores = await res.json();
-  } catch (e) {
-    scores = JSON.parse(localStorage.getItem('tobi_scores') || '[]');
-  }
+function loadBoard() {
+  const scores = loadScores();
   scores.sort((a, b) => b.score - a.score || new Date(a.date) - new Date(b.date));
 
   $('boardEmpty').classList.toggle('hidden', scores.length > 0);
