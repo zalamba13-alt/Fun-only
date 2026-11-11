@@ -38,7 +38,7 @@ const QUESTIONS = [
   {
     q: 'Am I in love?',
     accept: (a) => a.includes('not exactly') || a.includes('not really') || a.includes('not'),
-    answer: 'Not exactly 😂',
+    answer: 'Not exactly ',
   },
   {
     q: 'How long do I wanna live for (estimate years)?',
