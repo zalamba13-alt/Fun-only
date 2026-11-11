@@ -28,7 +28,7 @@ const QUESTIONS = [
   {
     q: 'Favourite person to hug?',
     accept: (a) => a.includes('carittah') || a.includes('caritah'),
-    answer: 'Carittah 😂',
+    answer: 'Carittah ',
   },
   {
     q: 'Which country was I born in (not as easy as it seems)?',
