@@ -48,7 +48,7 @@ const QUESTIONS = [
   {
     q: 'Out of all the girls in this world, which one do I love the most?',
     accept: (a) => a.includes('bestie') || a.includes('carittah') || a.includes('caritah'),
-    answer: 'my bestie 🤪 / Carittah',
+    answer: 'my bestie / Carittah',
   },
 ];
 
