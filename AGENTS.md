@@ -5,3 +5,4 @@
 - Leaderboard uses `localStorage` (key `tobi_scores`) — fully client-side.
 - Quiz answers live in `app.js` (`QUESTIONS` array) — each has an `accept` matcher function, case-insensitive.
 - GitHub remote: `origin` → https://github.com/zalamba13-alt/Fun-only.git (branch `main`).
+- Custom domain: `CNAME` file at root currently holds `tobiquiz.com` (placeholder — change it to the domain actually purchased, then set it in repo Settings → Pages → Custom domain).
