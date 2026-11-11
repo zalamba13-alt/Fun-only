@@ -1,0 +1,9 @@
+{
+  "name": "Tobi thing",
+  "templateId": "empty",
+  "agent": {
+    "profile": "light",
+    "planApproval": true,
+    "askUser": true
+  }
+}

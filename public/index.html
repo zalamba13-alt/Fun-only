@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tobi Quiz</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <h1 class="logo">🏆 Tobi Quiz</h1>
+      <button id="boardBtn" class="btn ghost small">Leaderboard</button>
+    </header>
+
+    <!-- Start screen -->
+    <section id="viewStart" class="view active">
+      <div class="card center">
+        <div class="emoji-big">🤔</div>
+        <h2>How well do you know Tobi?</h2>
+        <p class="muted">Answer all 10 questions. The people with the highest scores make it to the leaderboard!</p>
+        <label class="field">
+          <span>Your name</span>
+          <input id="nameInput" type="text" maxlength="30" placeholder="Enter your name">
+        </label>
+        <button id="startBtn" class="btn primary">Start Quiz →</button>
+      </div>
+    </section>
+
+    <!-- Quiz screen -->
+    <section id="viewQuiz" class="view">
+      <div class="card">
+        <div class="quiz-top">
+          <span id="qCounter" class="counter">1 / 10</span>
+          <div class="progress"><div id="progressBar" class="progress-fill"></div></div>
+        </div>
+        <h2 id="qText" class="question"></h2>
+        <label class="field">
+          <span>Your answer</span>
+          <input id="answerInput" type="text" autocomplete="off" placeholder="Type your answer…">
+        </label>
+        <button id="nextBtn" class="btn primary">Submit</button>
+        <p id="feedback" class="feedback"></p>
+      </div>
+    </section>
+
+    <!-- Results screen -->
+    <section id="viewResults" class="view">
+      <div class="card center">
+        <div id="resultEmoji" class="emoji-big"></div>
+        <h2 id="resultTitle"></h2>
+        <p class="score-big"><span id="scoreNum">0</span><span class="score-total"> / 10</span></p>
+        <p id="resultMsg" class="muted"></p>
+        <button id="reviewBtn" class="btn secondary">Review answers</button>
+        <button id="againBtn" class="btn primary">Try again</button>
+      </div>
+    </section>
+
+    <!-- Review screen -->
+    <section id="viewReview" class="view">
+      <div class="card">
+        <h2>Review</h2>
+        <div id="reviewList" class="review-list"></div>
+        <button id="reviewBackBtn" class="btn secondary">Back to results</button>
+      </div>
+    </section>
+
+    <!-- Leaderboard screen -->
+    <section id="viewBoard" class="view">
+      <div class="card">
+        <h2>🏆 Leaderboard</h2>
+        <div id="boardList" class="board-list"></div>
+        <p id="boardEmpty" class="muted hidden">No scores yet. Be the first!</p>
+        <button id="boardBackBtn" class="btn secondary">Back</button>
+      </div>
+    </section>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
