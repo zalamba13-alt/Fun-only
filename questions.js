@@ -42,7 +42,7 @@ const QUESTIONS = [
   },
   {
     q: "Who is my favourite person to hug?",
-    options: ["My mum", "My best friend", "Carittah", "Nobody"],
+    options: ["My mum", "My best friend", "My girlfriend ", "Nobody"],
     answer: 2
   },
   {
@@ -53,7 +53,7 @@ const QUESTIONS = [
   {
     q: "Am I in love?",
     options: ["Yes, deeply", "No", "It is complicated", "Not exactly"],
-    answer: 3
+    answer: 1
   },
   {
     q: "How long do I want to live for?",
