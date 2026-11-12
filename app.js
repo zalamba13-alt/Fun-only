@@ -1,226 +1,419 @@
-// ---- Questions & answers ----
-const QUESTIONS = [
-  {
-    q: 'What is my favourite Colour?',
-    accept: (a) => a === 'blue',
-    answer: 'blue',
-  },
-  {
-    q: 'Except Cristiano Ronaldo, which other footballer do I like a lot?',
-    accept: (a) => a.includes('bellingham'),
-    answer: 'Jude Bellingham',
-  },
-  {
-    q: 'If all the people on earth were in one room, would I consider myself the smartest person in the room?',
-    accept: (a) => a === 'yes' || a.includes('yes'),
-    answer: 'Yes',
-  },
-  {
-    q: 'What is the source of my knowledge?',
-    accept: (a) => a === 'god',
-    answer: 'God',
-  },
-  {
-    q: 'Favourite Hobby?',
-    accept: (a) => a.includes('football') || a.includes('footie') || a.includes('soccer'),
-    answer: 'Football',
-  },
-  {
-    q: 'Favourite person to hug?',
-    accept: (a) => a.includes('carittah') || a.includes('caritah'),
-    answer: 'Carittah ',
-  },
-  {
-    q: 'Which country was I born in (not as easy as it seems)?',
-    accept: (a) => a.includes('malawi'),
-    answer: 'Malawi',
-  },
-  {
-    q: 'Am I in love?',
-    accept: (a) => a.includes('yep') || a.includes(' yessss') || a.includes('Yes'),
-    answer: 'yes',
-  },
-  {
-    q: 'How long do I wanna live for (estimate years)?',
-    accept: (a) => a.includes('50') || a.includes('fifty') || a.includes('till 50'),
-    answer: 'till 50',
-  },
-  {
-    q: 'Out of all the girls in this world, which one do I love the most?',
-    accept: (a) => a.includes('bestie') || a.includes('carittah') || a.includes('caritah'),
-    answer: 'my bestie / Carittah',
-  },
-];
+/*
+ * TOBI QUIZ — app logic
+ * ---------------------
+ * Flow: start → quiz (one question at a time) → result → review / leaderboard
+ */
 
-const norm = (s) => String(s || '').trim().toLowerCase().replace(/\s+/g, ' ');
+(function () {
+  'use strict';
 
-// ---- State ----
-const state = {
-  name: '',
-  current: 0,
-  answers: [], // { q, yours, correct, right }
-  score: 0,
-};
+  /* ---------------- state ---------------- */
 
-// ---- DOM refs ----
-const $ = (id) => document.getElementById(id);
-const views = ['viewStart', 'viewQuiz', 'viewResults', 'viewReview', 'viewBoard'];
+  const state = {
+    name: '',
+    index: 0,
+    answers: [],      // index chosen per question, or null
+    locked: false,
+    finished: false,
+    savedRow: null    // the row this player just submitted
+  };
 
-function showView(id) {
-  views.forEach((v) => $(v).classList.toggle('active', v === id));
-}
+  const TOTAL = QUESTIONS.length;
 
-// ---- Leaderboard storage (localStorage — no server needed) ----
-const SCORES_KEY = 'tobi_scores';
+  /* ---------------- elements ---------------- */
 
-function loadScores() {
-  try {
-    return JSON.parse(localStorage.getItem(SCORES_KEY) || '[]');
-  } catch (e) {
-    return [];
+  const el = {
+    views: {
+      start: document.getElementById('viewStart'),
+      quiz: document.getElementById('viewQuiz'),
+      result: document.getElementById('viewResult'),
+      review: document.getElementById('viewReview'),
+      board: document.getElementById('viewBoard')
+    },
+    navBoard: document.getElementById('navBoard'),
+    nameInput: document.getElementById('nameInput'),
+    startBtn: document.getElementById('startBtn'),
+    startHint: document.getElementById('startHint'),
+
+    progress: document.getElementById('progress'),
+    progressFill: document.getElementById('progressFill'),
+    counter: document.getElementById('counter'),
+    scoreLive: document.getElementById('scoreLive'),
+
+    questionText: document.getElementById('questionText'),
+    options: document.getElementById('options'),
+
+    ringFill: document.getElementById('ringFill'),
+    resultScore: document.getElementById('resultScore'),
+    resultTotal: document.getElementById('resultTotal'),
+    resultTitle: document.getElementById('resultTitle'),
+    resultSub: document.getElementById('resultSub'),
+    statRank: document.getElementById('statRank'),
+    statPercent: document.getElementById('statPercent'),
+    statPlayers: document.getElementById('statPlayers'),
+    againBtn: document.getElementById('againBtn'),
+    reviewBtn: document.getElementById('reviewBtn'),
+
+    reviewList: document.getElementById('reviewList'),
+    reviewBack: document.getElementById('reviewBack'),
+
+    boardBody: document.getElementById('boardBody'),
+    boardEmpty: document.getElementById('boardEmpty'),
+    boardNote: document.getElementById('boardNote'),
+    boardBack: document.getElementById('boardBack')
+  };
+
+  const RING_LENGTH = 2 * Math.PI * 52; // r = 52 in the SVG
+
+  /* ---------------- helpers ---------------- */
+
+  function showView(name) {
+    Object.keys(el.views).forEach(function (key) {
+      el.views[key].classList.toggle('is-active', key === name);
+    });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   }
-}
 
-function saveScores(scores) {
-  localStorage.setItem(SCORES_KEY, JSON.stringify(scores));
-}
-
-// ---- Start ----
-$('startBtn').addEventListener('click', () => {
-  const name = $('nameInput').value.trim();
-  state.name = name || 'Anonymous';
-  startQuiz();
-});
-
-$('nameInput').addEventListener('keydown', (e) => {
-  if (e.key === 'Enter') $('startBtn').click();
-});
-
-function startQuiz() {
-  state.current = 0;
-  state.answers = [];
-  state.score = 0;
-  renderQuestion();
-  showView('viewQuiz');
-  $('answerInput').focus();
-}
-
-// ---- Quiz ----
-function renderQuestion() {
-  const i = state.current;
-  const q = QUESTIONS[i];
-  $('qCounter').textContent = `${i + 1} / ${QUESTIONS.length}`;
-  $('progressBar').style.width = `${((i + 1) / QUESTIONS.length) * 100}%`;
-  $('qText').textContent = q.q;
-  $('answerInput').value = '';
-  $('feedback').textContent = '';
-  $('feedback').className = 'feedback';
-}
-
-$('nextBtn').addEventListener('click', () => {
-  const i = state.current;
-  const q = QUESTIONS[i];
-  const raw = $('answerInput').value;
-  const answer = norm(raw);
-  if (!answer) {
-    $('feedback').textContent = 'Please type an answer.';
-    $('feedback').className = 'feedback wrong';
-    return;
+  function escapeHtml(value) {
+    return String(value)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
   }
-  const correct = q.accept(answer);
-  state.answers.push({ q: q.q, yours: raw.trim(), correct, right: q.answer });
-  if (correct) state.score++;
 
-  if (i + 1 < QUESTIONS.length) {
-    state.current++;
+  function correctCount() {
+    return state.answers.reduce(function (sum, choice, i) {
+      return sum + (choice === QUESTIONS[i].answer ? 1 : 0);
+    }, 0);
+  }
+
+  function formatDate(iso) {
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return '—';
+    return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  }
+
+  /* ---------------- quiz ---------------- */
+
+  function startQuiz() {
+    const typed = el.nameInput.value.trim();
+    if (!typed) {
+      el.startHint.textContent = 'Please enter your name first.';
+      el.startHint.classList.add('is-error');
+      el.nameInput.focus();
+      el.nameInput.classList.add('input-shake');
+      setTimeout(function () {
+        el.nameInput.classList.remove('input-shake');
+      }, 450);
+      return;
+    }
+
+    el.startHint.classList.remove('is-error');
+    el.startHint.textContent = 'No time limit. You can retake it as often as you like.';
+
+    state.name = typed.slice(0, 20);
+    state.index = 0;
+    state.answers = new Array(TOTAL).fill(null);
+    state.locked = false;
+    state.finished = false;
+
+    showView('quiz');
     renderQuestion();
-  } else {
-    showResults();
   }
-});
 
-$('answerInput').addEventListener('keydown', (e) => {
-  if (e.key === 'Enter') $('nextBtn').click();
-});
+  function renderQuestion() {
+    const question = QUESTIONS[state.index];
+    const answered = state.answers[state.index];
 
-// ---- Results ----
-function showResults() {
-  const s = state.score;
-  $('scoreNum').textContent = s;
-  let emoji, title, msg;
-  if (s === 10) { emoji = '🏆'; title = 'Perfect!'; msg = 'You know Tobi better than anyone!'; }
-  else if (s >= 8) { emoji = '🔥'; title = 'Amazing!'; msg = 'You really know Tobi well!'; }
-  else if (s >= 5) { emoji = '😄'; title = 'Not bad!'; msg = 'You know a good amount about Tobi.'; }
-  else if (s >= 3) { emoji = '🤔'; title = 'Hmm…'; msg = 'You have some things to learn about Tobi.'; }
-  else { emoji = '😅'; title = 'Ouch!'; msg = 'Time to get to know Tobi better!'; }
-  $('resultEmoji').textContent = emoji;
-  $('resultTitle').textContent = title;
-  $('resultMsg').textContent = msg;
-  showView('viewResults');
-  submitScore();
-}
+    state.locked = false;
 
-$('againBtn').addEventListener('click', () => {
-  showView('viewStart');
-  $('nameInput').focus();
-});
+    el.counter.textContent = 'Question ' + (state.index + 1) + ' of ' + TOTAL;
+    el.scoreLive.textContent = correctCount() + ' correct';
 
-$('reviewBtn').addEventListener('click', () => {
-  renderReview();
-  showView('viewReview');
-});
+    const pct = Math.round((state.index / TOTAL) * 100);
+    el.progressFill.style.width = pct + '%';
+    el.progress.setAttribute('aria-valuenow', String(pct));
 
-$('reviewBackBtn').addEventListener('click', () => showView('viewResults'));
+    el.questionText.textContent = question.q;
+    el.questionText.style.animation = 'none';
+    void el.questionText.offsetWidth;
+    el.questionText.style.animation = '';
 
-function renderReview() {
-  $('reviewList').innerHTML = state.answers.map((a) => `
-    <div class="review-item">
-      <span class="icon">${a.correct ? '✅' : '❌'}</span>
-      <div>
-        <div class="q">${a.q}</div>
-        <div class="ans">
-          <span class="yours">Your answer: ${escapeHtml(a.yours) || '—'}</span>
-          ${a.correct ? '' : `<br><span class="right">Correct: ${escapeHtml(a.right)}</span>`}
-        </div>
-      </div>
-    </div>`).join('');
-}
+    el.options.innerHTML = '';
 
-// ---- Leaderboard ----
-$('boardBtn').addEventListener('click', () => {
-  loadBoard();
-  showView('viewBoard');
-});
-$('boardBackBtn').addEventListener('click', () => showView('viewStart'));
+    question.options.forEach(function (optionText, i) {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'option';
+      btn.style.animationDelay = 0.05 * i + 's';
+      btn.dataset.index = String(i);
 
-function submitScore() {
-  const scores = loadScores();
-  scores.push({ name: state.name, score: state.score, date: new Date().toISOString() });
-  saveScores(scores);
-}
+      const key = document.createElement('span');
+      key.className = 'option-key';
+      key.textContent = String.fromCharCode(65 + i);
 
-function loadBoard() {
-  const scores = loadScores();
-  scores.sort((a, b) => b.score - a.score || new Date(a.date) - new Date(b.date));
+      const text = document.createElement('span');
+      text.className = 'option-text';
+      text.textContent = optionText;
 
-  $('boardEmpty').classList.toggle('hidden', scores.length > 0);
-  $('boardList').innerHTML = scores.slice(0, 50).map((s, i) => `
-    <div class="board-item">
-      <span class="board-rank">${medal(i)}</span>
-      <span class="board-name">${escapeHtml(s.name)}</span>
-      <span class="board-score">${s.score}/10</span>
-    </div>`).join('');
-}
+      const mark = document.createElement('span');
+      mark.className = 'option-mark';
+      mark.textContent = '';
 
-function medal(i) {
-  if (i === 0) return '🥇';
-  if (i === 1) return '🥈';
-  if (i === 2) return '🥉';
-  return `${i + 1}.`;
-}
+      btn.appendChild(key);
+      btn.appendChild(text);
+      btn.appendChild(mark);
 
-function escapeHtml(s) {
-  return String(s).replace(/[&<>"']/g, (c) => ({
-    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
-  }[c]));
-}
+      btn.addEventListener('click', function () {
+        choose(i);
+      });
+
+      el.options.appendChild(btn);
+    });
+
+    if (answered !== null) {
+      revealAnswer(answered);
+    }
+  }
+
+  function choose(choice) {
+    if (state.locked) return;
+    state.locked = true;
+    state.answers[state.index] = choice;
+
+    el.scoreLive.textContent = correctCount() + ' correct';
+    revealAnswer(choice);
+
+    setTimeout(function () {
+      if (state.index < TOTAL - 1) {
+        state.index += 1;
+        renderQuestion();
+      } else {
+        finish();
+      }
+    }, 780);
+  }
+
+  function revealAnswer(choice) {
+    const question = QUESTIONS[state.index];
+    const buttons = el.options.querySelectorAll('.option');
+
+    buttons.forEach(function (btn) {
+      const i = Number(btn.dataset.index);
+      btn.disabled = true;
+
+      const mark = btn.querySelector('.option-mark');
+
+      if (i === question.answer) {
+        btn.classList.add('is-correct');
+        mark.textContent = '✓';
+      } else if (i === choice) {
+        btn.classList.add('is-wrong');
+        mark.textContent = '✕';
+      } else {
+        btn.classList.add('is-dimmed');
+      }
+    });
+  }
+
+  /* ---------------- result ---------------- */
+
+  function verdict(score) {
+    const pct = score / TOTAL;
+    if (pct === 1) return { title: 'Perfect score', sub: 'You know me better than I know myself. That is genuinely impressive.' };
+    if (pct >= 0.85) return { title: 'Best friend energy', sub: 'Almost flawless. You have clearly been paying attention.' };
+    if (pct >= 0.7) return { title: 'Very close', sub: 'Strong score. A few surprises left in there, though.' };
+    if (pct >= 0.5) return { title: 'Not bad at all', sub: 'You know the basics. The details still got you.' };
+    if (pct >= 0.3) return { title: 'Room to grow', sub: 'There is a lot about me you still have to discover.' };
+    return { title: 'We need to talk', sub: 'Honestly, we should spend more time together.' };
+  }
+
+  async function finish() {
+    state.finished = true;
+
+    const score = correctCount();
+    const pct = Math.round((score / TOTAL) * 100);
+
+    showView('result');
+
+    el.resultScore.textContent = String(score);
+    el.resultTotal.textContent = '/ ' + TOTAL;
+    el.statPercent.textContent = pct + '%';
+
+    const ringOffset = RING_LENGTH - (pct / 100) * RING_LENGTH;
+    el.ringFill.style.strokeDasharray = String(RING_LENGTH);
+    el.ringFill.style.strokeDashoffset = String(RING_LENGTH);
+    requestAnimationFrame(function () {
+      el.ringFill.style.strokeDashoffset = String(ringOffset);
+    });
+
+    const ringColor = pct >= 70 ? 'var(--teal)' : pct >= 40 ? 'var(--gold)' : 'var(--rose)';
+    el.ringFill.style.stroke = ringColor;
+
+    const v = verdict(score);
+    el.resultTitle.textContent = v.title;
+    el.resultSub.textContent = v.sub;
+
+    el.statRank.textContent = '—';
+    el.statPlayers.textContent = '—';
+
+    const saved = await Store.add({ name: state.name, score: score, total: TOTAL });
+    state.savedRow = saved.row;
+
+    const rows = await Store.list();
+    const rank = findRank(rows, state.savedRow);
+
+    el.statRank.textContent = rank ? '#' + rank : '—';
+    el.statPlayers.textContent = String(rows.length);
+  }
+
+  function findRank(rows, row) {
+    if (!row) return 0;
+
+    // Exact submission first (same name + same timestamp).
+    for (let i = 0; i < rows.length; i += 1) {
+      if (rows[i].created_at === row.created_at && rows[i].name === row.name) {
+        return i + 1;
+      }
+    }
+
+    // Otherwise the best position holding that score.
+    for (let i = 0; i < rows.length; i += 1) {
+      if (rows[i].score === row.score) return i + 1;
+    }
+
+    return 0;
+  }
+
+  /* ---------------- review ---------------- */
+
+  function renderReview() {
+    el.reviewList.innerHTML = '';
+
+    QUESTIONS.forEach(function (question, i) {
+      const chosen = state.answers[i];
+      const ok = chosen === question.answer;
+
+      const item = document.createElement('div');
+      item.className = 'review-item ' + (ok ? 'ok' : 'no');
+      item.style.animationDelay = Math.min(i * 0.03, 0.4) + 's';
+
+      const q = document.createElement('p');
+      q.className = 'review-q';
+      q.textContent = (i + 1) + '. ' + question.q;
+
+      const yours = document.createElement('div');
+      yours.className = 'review-line';
+      yours.innerHTML =
+        '<span class="review-tag">You</span><span>' +
+        escapeHtml(chosen === null ? 'No answer' : question.options[chosen]) +
+        '</span>';
+
+      item.appendChild(q);
+      item.appendChild(yours);
+
+      if (!ok) {
+        const right = document.createElement('div');
+        right.className = 'review-line';
+        right.innerHTML =
+          '<span class="review-tag">Answer</span><span>' +
+          escapeHtml(question.options[question.answer]) +
+          '</span>';
+        item.appendChild(right);
+      }
+
+      el.reviewList.appendChild(item);
+    });
+  }
+
+  /* ---------------- leaderboard ---------------- */
+
+  async function renderBoard() {
+    el.boardBody.innerHTML = '';
+    el.boardEmpty.classList.remove('is-shown');
+
+    if (!Store.isRemote()) {
+      el.boardNote.textContent =
+        'Scores are saved on this device. Connect a free Supabase project in store.js to share one board between every player.';
+    } else {
+      el.boardNote.textContent = 'Live board — every player who finishes the quiz appears here.';
+    }
+
+    const rows = await Store.list();
+
+    if (!rows.length) {
+      el.boardEmpty.classList.add('is-shown');
+      return;
+    }
+
+    const myRow = state.finished ? state.savedRow : null;
+
+    rows.forEach(function (row, i) {
+      const rank = i + 1;
+      const tr = document.createElement('tr');
+      tr.style.animationDelay = Math.min(i * 0.035, 0.5) + 's';
+
+      if (rank <= 3) tr.classList.add('rank-' + rank);
+
+      const isYou = Boolean(
+        myRow &&
+        row.created_at === myRow.created_at &&
+        row.name === myRow.name &&
+        row.score === myRow.score
+      );
+      if (isYou) tr.classList.add('is-you');
+
+      const pct = row.total ? Math.round((row.score / row.total) * 100) : 0;
+
+      tr.innerHTML =
+        '<td class="col-rank"><span class="rank-badge">' + rank + '</span></td>' +
+        '<td><span class="player-name">' + escapeHtml(row.name) + '</span>' +
+        (isYou ? '<span class="you-tag">You</span>' : '') +
+        '</td>' +
+        '<td class="col-score cell-score">' + row.score + '/' + row.total + '</td>' +
+        '<td class="col-pct cell-pct">' + pct + '%</td>' +
+        '<td class="col-date cell-date">' + formatDate(row.created_at) + '</td>';
+
+      el.boardBody.appendChild(tr);
+    });
+  }
+
+  /* ---------------- wiring ---------------- */
+
+  el.startBtn.addEventListener('click', startQuiz);
+
+  el.nameInput.addEventListener('keydown', function (event) {
+    if (event.key === 'Enter') startQuiz();
+  });
+
+  el.navBoard.addEventListener('click', function () {
+    showView('board');
+    renderBoard();
+  });
+
+  el.boardBack.addEventListener('click', function () {
+    showView(state.finished ? 'result' : 'start');
+  });
+
+  el.reviewBtn.addEventListener('click', function () {
+    renderReview();
+    showView('review');
+  });
+
+  el.reviewBack.addEventListener('click', function () {
+    showView('result');
+  });
+
+  el.againBtn.addEventListener('click', function () {
+    el.nameInput.value = state.name;
+    showView('start');
+    el.nameInput.focus();
+  });
+
+  /* first paint */
+  el.resultTotal.textContent = '/ ' + TOTAL;
+  el.counter.textContent = 'Question 1 of ' + TOTAL;
+  el.nameInput.focus();
+})();

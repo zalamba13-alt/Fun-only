@@ -1,22 +1,41 @@
-# 🏆 Tobi Quiz
+# Tobi Quiz
 
-A quiz about Tobi — answer all 10 questions, see your score, and make the leaderboard.
+A 20-question multiple-choice quiz about Tobi. Answer everything, get your score,
+accuracy and rank, then compare yourself on the leaderboard.
 
 ## Live site
-
-The quiz is a **static website** (no server, no build). It's hosted on GitHub Pages at:
 
 **https://zalamba13-alt.github.io/Fun-only/**
 
 ## Run locally
 
-Just open `index.html` in a browser — that's it. (Or, if you want the optional local server: `npm start` then visit http://127.0.0.1:3000)
+Open `index.html` in a browser — that's it. No build, no server, no npm.
 
-## How it works
+## Files
 
-- **Frontend** (`index.html`, `style.css`, `app.js`): plain HTML/CSS/JS, mobile-first.
-- **Leaderboard**: stored in the browser's `localStorage` (key `tobi_scores`) — no backend needed.
+| File | Role |
+| --- | --- |
+| `index.html` | Markup for all five screens (start, quiz, result, review, leaderboard) |
+| `style.css` | Design system: ink/gold palette, animations, responsive layout |
+| `questions.js` | The question bank — edit questions and correct answers here |
+| `store.js` | Leaderboard storage (local by default, Supabase for a shared board) |
+| `app.js` | Quiz flow, scoring, rank calculation, table rendering |
 
-## Answers
+## Editing the questions
 
-All answers are checked case-insensitively, with a few accepting multiple spellings (e.g. Q10 accepts "my bestie" or "Carittah").
+Open `questions.js`. Each entry looks like:
+
+```js
+{ q: "What is my favourite colour?", options: ["Red", "Blue", "Green", "Black"], answer: 1 }
+```
+
+`answer` is the **index** of the correct option — `1` means the second option ("Blue").
+Add or remove entries freely; the quiz, progress bar and totals adapt automatically.
+
+## Shared leaderboard (optional)
+
+Out of the box, scores are stored in the visitor's own browser, so each person only
+sees their own attempts. To get **one board shared by every player**, create a free
+Supabase project and paste the project URL plus the anon public key into the `REMOTE`
+object at the top of `store.js`. The SQL to create the table is in that file's header
+comment. The app falls back to local storage automatically if the network fails.

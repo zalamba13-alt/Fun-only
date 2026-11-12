@@ -3,79 +3,149 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Tobi Quiz</title>
+  <meta name="theme-color" content="#0a0e1a">
+  <meta name="description" content="How well do you really know Tobi? Take the quiz and see where you rank.">
+  <title>Tobi Quiz — How well do you know me?</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <div class="app">
-    <header class="topbar">
-      <h1 class="logo">🏆 Tobi Quiz</h1>
-      <button id="boardBtn" class="btn ghost small">Leaderboard</button>
-    </header>
-
-    <!-- Start screen -->
-    <section id="viewStart" class="view active">
-      <div class="card center">
-        <div class="emoji-big">🤔</div>
-        <h2>How well do you know Tobi?</h2>
-        <p class="muted">Answer all 10 questions. The people with the highest scores make it to the leaderboard!</p>
-        <label class="field">
-          <span>Your name</span>
-          <input id="nameInput" type="text" maxlength="30" placeholder="Enter your name">
-        </label>
-        <button id="startBtn" class="btn primary">Start Quiz →</button>
-      </div>
-    </section>
-
-    <!-- Quiz screen -->
-    <section id="viewQuiz" class="view">
-      <div class="card">
-        <div class="quiz-top">
-          <span id="qCounter" class="counter">1 / 10</span>
-          <div class="progress"><div id="progressBar" class="progress-fill"></div></div>
-        </div>
-        <h2 id="qText" class="question"></h2>
-        <label class="field">
-          <span>Your answer</span>
-          <input id="answerInput" type="text" autocomplete="off" placeholder="Type your answer…">
-        </label>
-        <button id="nextBtn" class="btn primary">Submit</button>
-        <p id="feedback" class="feedback"></p>
-      </div>
-    </section>
-
-    <!-- Results screen -->
-    <section id="viewResults" class="view">
-      <div class="card center">
-        <div id="resultEmoji" class="emoji-big"></div>
-        <h2 id="resultTitle"></h2>
-        <p class="score-big"><span id="scoreNum">0</span><span class="score-total"> / 10</span></p>
-        <p id="resultMsg" class="muted"></p>
-        <button id="reviewBtn" class="btn secondary">Review answers</button>
-        <button id="againBtn" class="btn primary">Try again</button>
-      </div>
-    </section>
-
-    <!-- Review screen -->
-    <section id="viewReview" class="view">
-      <div class="card">
-        <h2>Review</h2>
-        <div id="reviewList" class="review-list"></div>
-        <button id="reviewBackBtn" class="btn secondary">Back to results</button>
-      </div>
-    </section>
-
-    <!-- Leaderboard screen -->
-    <section id="viewBoard" class="view">
-      <div class="card">
-        <h2>🏆 Leaderboard</h2>
-        <div id="boardList" class="board-list"></div>
-        <p id="boardEmpty" class="muted hidden">No scores yet. Be the first!</p>
-        <button id="boardBackBtn" class="btn secondary">Back</button>
-      </div>
-    </section>
+  <div class="bg-blobs" aria-hidden="true">
+    <span class="blob blob-1"></span>
+    <span class="blob blob-2"></span>
+    <span class="blob blob-3"></span>
   </div>
 
+  <main class="app">
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true"></span>
+        <span class="brand-name">Tobi Quiz</span>
+      </div>
+      <button class="btn btn-ghost btn-sm" id="navBoard" type="button">Leaderboard</button>
+    </header>
+
+    <!-- Start -->
+    <section class="view view-start is-active" id="viewStart">
+      <div class="card card-hero">
+        <p class="eyebrow">20 questions</p>
+        <h1 class="hero-title">How well do you <em>really</em> know Tobi?</h1>
+        <p class="hero-sub">
+          One answer per question. Your score, accuracy and rank land on the
+          leaderboard the moment you finish.
+        </p>
+
+        <label class="field">
+          <span class="field-label">Your name</span>
+          <input
+            class="input"
+            id="nameInput"
+            type="text"
+            maxlength="20"
+            placeholder="e.g. Carittah"
+            autocomplete="off"
+            spellcheck="false">
+        </label>
+
+        <button class="btn btn-primary btn-block" id="startBtn" type="button">Start the quiz</button>
+        <p class="hint" id="startHint">No time limit. You can retake it as often as you like.</p>
+      </div>
+    </section>
+
+    <!-- Quiz -->
+    <section class="view view-quiz" id="viewQuiz">
+      <div class="quiz-head">
+        <div class="progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="progress">
+          <div class="progress-fill" id="progressFill"></div>
+        </div>
+        <div class="quiz-meta">
+          <span class="counter" id="counter">Question 1 of 20</span>
+          <span class="score-live" id="scoreLive">0 correct</span>
+        </div>
+      </div>
+
+      <div class="card card-question">
+        <h2 class="question-text" id="questionText"></h2>
+        <div class="options" id="options"></div>
+      </div>
+    </section>
+
+    <!-- Result -->
+    <section class="view view-result" id="viewResult">
+      <div class="card card-result">
+        <div class="ring-wrap">
+          <svg class="ring" viewBox="0 0 120 120" aria-hidden="true">
+            <circle class="ring-track" cx="60" cy="60" r="52"></circle>
+            <circle class="ring-fill" id="ringFill" cx="60" cy="60" r="52"></circle>
+          </svg>
+          <div class="ring-label">
+            <span class="ring-score" id="resultScore">0</span>
+            <span class="ring-total" id="resultTotal">/ 20</span>
+          </div>
+        </div>
+
+        <h2 class="result-title" id="resultTitle">Well played</h2>
+        <p class="result-sub" id="resultSub"></p>
+
+        <div class="result-stats">
+          <div class="stat">
+            <span class="stat-value" id="statRank">—</span>
+            <span class="stat-label">Rank</span>
+          </div>
+          <div class="stat">
+            <span class="stat-value" id="statPercent">0%</span>
+            <span class="stat-label">Accuracy</span>
+          </div>
+          <div class="stat">
+            <span class="stat-value" id="statPlayers">0</span>
+            <span class="stat-label">Players</span>
+          </div>
+        </div>
+
+        <div class="result-actions">
+          <button class="btn btn-primary" id="againBtn" type="button">Play again</button>
+          <button class="btn btn-ghost" id="reviewBtn" type="button">Review answers</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Review -->
+    <section class="view view-review" id="viewReview">
+      <div class="section-head">
+        <h2 class="section-title">Your answers</h2>
+        <button class="btn btn-ghost btn-sm" id="reviewBack" type="button">Back</button>
+      </div>
+      <div class="review-list" id="reviewList"></div>
+    </section>
+
+    <!-- Leaderboard -->
+    <section class="view view-board" id="viewBoard">
+      <div class="section-head">
+        <h2 class="section-title">Leaderboard</h2>
+        <button class="btn btn-ghost btn-sm" id="boardBack" type="button">Back</button>
+      </div>
+
+      <p class="board-note" id="boardNote"></p>
+
+      <div class="card card-table">
+        <table class="board-table">
+          <thead>
+            <tr>
+              <th class="col-rank" scope="col">#</th>
+              <th scope="col">Player</th>
+              <th class="col-score" scope="col">Score</th>
+              <th class="col-pct" scope="col">%</th>
+              <th class="col-date" scope="col">Date</th>
+            </tr>
+          </thead>
+          <tbody id="boardBody"></tbody>
+        </table>
+        <p class="empty" id="boardEmpty">No scores yet — be the first one on the board.</p>
+      </div>
+    </section>
+  </main>
+
+  <script src="questions.js"></script>
+  <script src="store.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
