@@ -42,7 +42,7 @@ const QUESTIONS = [
   },
   {
     q: "Who is my favourite person to hug?",
-    options: ["My mum", "My best friend", "Carittah", "Nobody"],
+    options: ["My mum", "My best friend", "My girlfriend ", "Nobody"],
     answer: 2
   },
   {
