@@ -6,4 +6,5 @@
 - Leaderboard uses `localStorage` (key `tobi_scores`) — fully client-side.
 - Quiz answers live in `app.js` (`QUESTIONS` array) — each has an `accept` matcher function, case-insensitive.
 - GitHub remote: `origin` → https://github.com/zalamba13-alt/Fun-only.git (branch `main`).
-- Custom domain: `CNAME` file at root currently holds `tobiquiz.com` (placeholder — change it to the domain actually purchased, then set it in repo Settings → Pages → Custom domain).
+- No `CNAME` file: a placeholder domain makes GitHub Pages redirect to a domain nobody owns. Add one only after a real domain is purchased.
+- Vercel: if the build fails with "Container service must specify an entrypoint", the project's Framework Preset was saved as a container/service type — delete the Vercel project and re-import with Framework Preset "Other", Build Command and Output Directory both empty.
