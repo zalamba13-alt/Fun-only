@@ -336,7 +336,7 @@
 
     if (!Store.isRemote()) {
       el.boardNote.textContent =
-        'Scores are saved on this device. Connect a free Supabase project in store.js to share one board between every player.';
+        'This board only shows scores from this device. To see everyone’s scores, connect a free Supabase project in store.js (5 minutes, no card).';
     } else {
       el.boardNote.textContent = 'Live board — every player who finishes the quiz appears here.';
     }
