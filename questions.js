@@ -53,7 +53,7 @@ const QUESTIONS = [
   {
     q: "Am I in love?",
     options: ["Yes, deeply", "No", "It is complicated", "Not exactly"],
-    answer: 3
+    answer: 1
   },
   {
     q: "How long do I want to live for?",
