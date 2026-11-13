@@ -5,7 +5,7 @@ accuracy and rank, then compare yourself on the leaderboard.
 
 ## Live site
 
-**https://zalamba13-alt.github.io/Fun-only/**
+**<https://zalamba13-alt.github.io/Fun-only/>**
 
 ## Run locally
 
