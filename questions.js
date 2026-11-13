@@ -52,8 +52,8 @@ const QUESTIONS = [
   },
   {
     q: "Am I in love?",
-    options: ["Yes, deeply", "No", "It is complicated", "Not exactly"],
-    answer: 1
+    options: ["Yes, deeply", "No", "It's complicated", "Not exactly"],
+    answer: 0
   },
   {
     q: "How long do I want to live for?",
@@ -62,7 +62,7 @@ const QUESTIONS = [
   },
   {
     q: "Out of all the girls in this world, which one do I love the most?",
-    options: ["My mum", "Carittah, my bestie", "My sister", "Nobody yet"],
+    options: ["My ex", "My girl", "My sister", "My friend"],
     answer: 1
   },
 
@@ -74,13 +74,13 @@ const QUESTIONS = [
   },
   {
     q: "What is my dream job?",
-    options: ["Professional footballer", "Sports journalist", "Coach", "Engineer"],
-    answer: 0
+    options: ["Professional footballer", "Sports journalist", "Coach", "President"],
+    answer: 3
   },
   {
     q: "What is the first thing I do when something goes wrong?",
-    options: ["Call a friend", "Pray about it", "Sleep on it", "Get angry"],
-    answer: 1
+    options: ["Call a friend", "Leave it", "Sleep on it", "Get angry"],
+    answer: 0
   },
   {
     q: "What is my favourite food?",
@@ -93,18 +93,18 @@ const QUESTIONS = [
     answer: 1
   },
   {
-    q: "Am I a morning person or a night owl?",
-    options: ["Morning person", "Night owl", "Neither", "Depends on the day"],
+    q: "Am I a morning person or a night guy?",
+    options: ["Morning person", "Night guy", "Neither", "Depends on the day"],
     answer: 0
   },
   {
     q: "What is the one thing I never leave the house without?",
-    options: ["My phone", "My Bible", "Headphones", "A football"],
-    answer: 1
+    options: ["My phone", "My girlfriend", "Headphones", "A football"],
+    answer: 0
   },
   {
     q: "What kind of music do I listen to most?",
-    options: ["Gospel", "Afrobeats", "Hip hop", "Amapiano"],
+    options: ["British hip-hop", "Afro-beats", "R&B", "Amapiano"],
     answer: 0
   },
   {
@@ -115,6 +115,6 @@ const QUESTIONS = [
   {
     q: "How many siblings do I have?",
     options: ["One", "Two", "Three", "Four"],
-    answer: 2
+    answer: 1
   }
 ];
