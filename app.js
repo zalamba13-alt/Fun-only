@@ -15,7 +15,8 @@
     answers: [],      // index chosen per question, or null
     locked: false,
     finished: false,
-    savedRow: null    // the row this player just submitted
+    savedRow: null,   // the row this player just submitted
+    boardSubscription: null
   };
 
   const TOTAL = QUESTIONS.length;
@@ -380,6 +381,21 @@
     });
   }
 
+  function attachBoardListener() {
+    if (state.boardSubscription) return;
+    if (!Store.isRemote()) return;
+
+    state.boardSubscription = Store.subscribe(function () {
+      renderBoard();
+    });
+  }
+
+  function detachBoardListener() {
+    if (!state.boardSubscription) return;
+    state.boardSubscription();
+    state.boardSubscription = null;
+  }
+
   /* ---------------- wiring ---------------- */
 
   el.startBtn.addEventListener('click', startQuiz);
@@ -389,11 +405,13 @@
   });
 
   el.navBoard.addEventListener('click', function () {
+    attachBoardListener();
     showView('board');
     renderBoard();
   });
 
   el.boardBack.addEventListener('click', function () {
+    detachBoardListener();
     showView(state.finished ? 'result' : 'start');
   });
 

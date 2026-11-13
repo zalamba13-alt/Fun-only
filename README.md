@@ -32,10 +32,13 @@ Open `questions.js`. Each entry looks like:
 `answer` is the **index** of the correct option — `1` means the second option ("Blue").
 Add or remove entries freely; the quiz, progress bar and totals adapt automatically.
 
-## Shared leaderboard (optional)
+## Shared leaderboard (live)
 
 Out of the box, scores are stored in the visitor's own browser, so each person only
-sees their own attempts. To get **one board shared by every player**, create a free
+sees their own attempts. To get **one live board shared by every player**, create a free
 Supabase project and paste the project URL plus the anon public key into the `REMOTE`
 object at the top of `store.js`. The SQL to create the table is in that file's header
 comment. The app falls back to local storage automatically if the network fails.
+
+Once Supabase is configured, the leaderboard subscribes to the `scores` table and updates
+when another player submits a result, so people see new entries without reloading the page.

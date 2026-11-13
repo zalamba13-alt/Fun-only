@@ -35,9 +35,38 @@ const Store = (function () {
 
   const KEY = 'tobi_scores_v2';
   const LIMIT = 100;
+  let supabaseClient = null;
+  let realtimeChannel = null;
+  const listeners = new Set();
 
   function isRemote() {
     return Boolean(REMOTE.url && REMOTE.anonKey);
+  }
+
+  function ensureSupabase() {
+    if (!isRemote()) return null;
+    if (typeof window === 'undefined' || !window.supabase) return null;
+
+    if (!supabaseClient) {
+      supabaseClient = window.supabase.createClient(REMOTE.url, REMOTE.anonKey, {
+        auth: {
+          persistSession: false,
+          autoRefreshToken: false
+        }
+      });
+    }
+
+    return supabaseClient;
+  }
+
+  function notifyListeners() {
+    listeners.forEach(function (listener) {
+      try {
+        listener();
+      } catch (err) {
+        console.warn('[leaderboard] live listener failed', err);
+      }
+    });
   }
 
   function endpoint(path) {
@@ -90,6 +119,34 @@ const Store = (function () {
     });
   }
 
+  function subscribe(listener) {
+    if (typeof listener !== 'function') return function () {};
+    const client = ensureSupabase();
+    if (!client) return function () {};
+
+    listeners.add(listener);
+
+    if (!realtimeChannel) {
+      realtimeChannel = client.channel('scores-live');
+      realtimeChannel.on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: REMOTE.table },
+        function () {
+          notifyListeners();
+        }
+      );
+      realtimeChannel.subscribe();
+    }
+
+    return function unsubscribe() {
+      listeners.delete(listener);
+      if (!listeners.size && realtimeChannel) {
+        client.removeChannel(realtimeChannel);
+        realtimeChannel = null;
+      }
+    };
+  }
+
   async function list() {
     if (!isRemote()) return normalise(readLocal());
 
@@ -137,6 +194,7 @@ const Store = (function () {
         })
       });
       if (!res.ok) throw new Error('HTTP ' + res.status);
+      notifyListeners();
       return { shared: true, row: row };
     } catch (err) {
       console.warn('[leaderboard] could not save to the shared board.', err);
@@ -148,5 +206,5 @@ const Store = (function () {
     }
   }
 
-  return { list: list, add: add, isRemote: isRemote, LIMIT: LIMIT };
+  return { list: list, add: add, subscribe: subscribe, isRemote: isRemote, LIMIT: LIMIT };
 })();
