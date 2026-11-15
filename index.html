@@ -146,60 +146,68 @@
       </div>
     </section>
 
-    <!-- Admin -->
-    <section class="view view-admin" id="viewAdmin">
-      <div class="section-head">
-        <h2 class="section-title">Admin</h2>
-        <button class="btn btn-ghost btn-sm" id="adminBack" type="button">Back</button>
-      </div>
+<!-- Admin -->
+      <section class="view view-admin" id="viewAdmin">
+        <div class="section-head">
+          <h2 class="section-title">Admin</h2>
+          <button class="btn btn-ghost btn-sm" id="adminBack" type="button">Back</button>
+        </div>
 
-      <!-- locked state -->
-      <div class="card" id="adminLocked">
-        <p class="admin-lead">Enter the admin password to manage retakes.</p>
-        <label class="field">
-          <span class="field-label">Password</span>
-          <input
-            class="input"
-            id="adminPass"
-            type="password"
-            placeholder="Password"
-            autocomplete="current-password">
-        </label>
-        <button class="btn btn-primary btn-block" id="adminLoginBtn" type="button">Unlock</button>
-        <p class="hint" id="adminHint"></p>
-      </div>
-
-      <!-- unlocked state -->
-      <div id="adminPanel" hidden>
-        <div class="card">
-          <p class="admin-lead">Allow someone to take the quiz again.</p>
+        <!-- locked state -->
+        <div class="card" id="adminLocked">
+          <p class="admin-lead">Enter your admin email and password to manage retakes.</p>
           <label class="field">
-            <span class="field-label">Player name</span>
+            <span class="field-label">Email</span>
             <input
               class="input"
-              id="grantName"
-              type="text"
-              maxlength="20"
-              placeholder="Exact name they used"
-              autocomplete="off"
-              spellcheck="false">
+              id="adminEmail"
+              type="email"
+              placeholder="your@email.com"
+              autocomplete="email">
           </label>
-          <div class="admin-actions">
-            <button class="btn btn-primary" id="grantBtn" type="button">Allow retake</button>
-            <button class="btn btn-ghost" id="removeBtn" type="button">Remove player</button>
+          <label class="field">
+            <span class="field-label">Password</span>
+            <input
+              class="input"
+              id="adminPass"
+              type="password"
+              placeholder="Password"
+              autocomplete="current-password">
+          </label>
+          <button class="btn btn-primary btn-block" id="adminLoginBtn" type="button">Unlock</button>
+          <p class="hint" id="adminHint"></p>
+          <button class="btn btn-ghost btn-block admin-lock" id="adminLockBtn" type="button">Sign out</button>
+        </div>
+
+        <!-- unlocked state -->
+        <div id="adminPanel" hidden>
+          <div class="card">
+            <p class="admin-lead">Allow someone to take the quiz again.</p>
+            <label class="field">
+              <span class="field-label">Player name</span>
+              <input
+                class="input"
+                id="grantName"
+                type="text"
+                maxlength="20"
+                placeholder="Exact name they used"
+                autocomplete="off"
+                spellcheck="false">
+            </label>
+            <div class="admin-actions">
+              <button class="btn btn-primary" id="grantBtn" type="button">Allow retake</button>
+              <button class="btn btn-ghost" id="removeBtn" type="button">Remove player</button>
+            </div>
+            <p class="hint" id="grantHint"></p>
           </div>
-          <p class="hint" id="grantHint"></p>
-        </div>
 
-        <div class="card admin-danger">
-          <p class="admin-lead">Danger zone</p>
-          <button class="btn btn-danger btn-block" id="clearBtn" type="button">Clear the whole board</button>
-          <p class="hint">This deletes every score and every attempt record.</p>
+          <div class="card admin-danger">
+            <p class="admin-lead">Danger zone</p>
+            <button class="btn btn-danger btn-block" id="clearBtn" type="button">Clear the whole board</button>
+            <p class="hint">This deletes every score and every attempt record.</p>
+          </div>
         </div>
-
-        <button class="btn btn-ghost btn-block admin-lock" id="adminLockBtn" type="button">Lock admin</button>
-      </div>
-    </section>
+      </section>
   </main>
 
   <script src="questions.js"></script>

@@ -102,9 +102,9 @@
   }
 
   function correctCount() {
-    return state.answers.reduce(function (sum, choice, i) {
-      return sum + (choice === QUESTIONS[i].answer ? 1 : 0);
-    }, 0);
+    var answered = 0;
+    for (var i = 0; i < TOTAL; i++) if (state.answers[i] !== null) answered++;
+    return answered;
   }
 
   function formatDate(iso) {
@@ -122,7 +122,7 @@
 
   /* ---------------- start ---------------- */
 
-  async function startQuiz() {
+async function startQuiz() {
     const typed = el.nameInput.value.trim();
 
     if (!typed) {
@@ -134,23 +134,17 @@
     }
 
     el.startHint.classList.remove('is-error');
-    el.startHint.textContent = 'Checking your name…';
     el.startBtn.disabled = true;
 
-    const status = await Store.attemptStatus(typed);
-
+    const start = await Store.startAttempt(typed);
     el.startBtn.disabled = false;
 
-    if (status.taken && !status.allowed) {
-      el.startHint.textContent =
-        'You have already taken this quiz. Ask Tobi to unlock another attempt.';
+    if (!start.ok) {
+      el.startHint.textContent = 'Could not reserve an attempt: ' + (start.error || '');
       el.startHint.classList.add('is-error');
       shake(el.nameInput);
       return;
     }
-
-    el.startHint.classList.remove('is-error');
-    el.startHint.textContent = 'Good luck.';
 
     state.name = typed.slice(0, 20);
     state.index = 0;
@@ -159,14 +153,7 @@
     state.finished = false;
     state.savedRow = null;
     state.started = true;
-
-    // Burn the attempt now, so closing the tab mid-quiz still counts.
-    // If this fails we let them play anyway rather than blocking them.
-    try {
-      await Store.recordAttempt(state.name);
-    } catch (err) {
-      console.warn('[quiz] could not record the attempt.', err);
-    }
+    state.attemptToken = start.token;
 
     showView('quiz');
     renderQuestion();
@@ -252,17 +239,13 @@
     const buttons = el.options.querySelectorAll('.option');
 
     buttons.forEach(function (btn) {
-      const i = Number(btn.dataset.index);
       btn.disabled = true;
 
       const mark = btn.querySelector('.option-mark');
+      mark.textContent = '';
 
-      if (i === question.answer) {
-        btn.classList.add('is-correct');
-        mark.textContent = '✓';
-      } else if (i === choice) {
-        btn.classList.add('is-wrong');
-        mark.textContent = '✕';
+      if (i === choice) {
+        btn.classList.add('is-selected');
       } else {
         btn.classList.add('is-dimmed');
       }
@@ -281,24 +264,38 @@
     return { title: 'We need to talk', sub: 'Honestly, we should spend more time together.' };
   }
 
-  async function finish() {
+async function finish() {
     state.finished = true;
 
-    const score = correctCount();
-    const pct = Math.round((score / TOTAL) * 100);
+    const answers = state.answers;
+    const attemptToken = state.attemptToken;
+
+    // Submit answers to the server for authoritative scoring.
+    const submitted = await Store.submitAttempt(state.name, attemptToken, answers);
+    if (!submitted.ok) {
+      el.resultScore.textContent = '0';
+      el.resultTotal.textContent = '/ ' + TOTAL;
+      el.statPercent.textContent = '0%';
+      el.resultSub.textContent = 'Could not submit answers: ' + (submitted.error || '');
+      el.statRank.textContent = '—';
+      el.statPlayers.textContent = '—';
+      return;
+    }
+
+    // Authoritative score from the server.
+    var score = Number(submitted.score) || 0;
+    var total = Number(submitted.total) || TOTAL;
+    var pct = Math.round((score / total) * 100);
 
     showView('result');
 
     el.resultScore.textContent = String(score);
-    el.resultTotal.textContent = '/ ' + TOTAL;
+    el.resultTotal.textContent = '/ ' + total;
     el.statPercent.textContent = pct + '%';
 
     const ringOffset = RING_LENGTH - (pct / 100) * RING_LENGTH;
     el.ringFill.style.strokeDasharray = String(RING_LENGTH);
     el.ringFill.style.strokeDashoffset = String(RING_LENGTH);
-    requestAnimationFrame(function () {
-      el.ringFill.style.strokeDashoffset = String(ringOffset);
-    });
 
     const ringColor = pct >= 70 ? 'var(--teal)' : pct >= 40 ? 'var(--gold)' : 'var(--rose)';
     el.ringFill.style.stroke = ringColor;
@@ -310,14 +307,11 @@
     el.statRank.textContent = '—';
     el.statPlayers.textContent = '—';
 
-    const saved = await Store.addScore({ name: state.name, score: score, total: TOTAL });
-    state.savedRow = saved.row;
+    // Store the server's answer key for the review screen.
+    state.reviewKey = submitted.key || null;
 
-    const rows = await Store.listScores();
-    const rank = findRank(rows, state.savedRow);
-
-    el.statRank.textContent = rank ? '#' + rank : '—';
-    el.statPlayers.textContent = String(rows.length);
+    // Show the review view.
+    renderReview();
   }
 
   function findRank(rows, row) {
@@ -340,22 +334,32 @@
 
   /* ---------------- review ---------------- */
 
-  function renderReview() {
+function renderReview() {
     el.reviewList.innerHTML = '';
 
-    QUESTIONS.forEach(function (question, i) {
-      const chosen = state.answers[i];
-      const ok = chosen === question.answer;
+    // Use the key that was returned from submit_quiz_attempt, if available.
+    var key = null;
+    if (state.reviewKey) {
+      for (var i = 0; i < TOTAL; i++) {
+        var v = state.reviewKey[String(i + 1)];
+        if (v !== undefined) key[i] = v;
+      }
+    }
 
-      const item = document.createElement('div');
-      item.className = 'review-item ' + (ok ? 'ok' : 'no');
+    QUESTIONS.forEach(function (question, i) {
+      var chosen = state.answers[i];
+      var correct = false;
+      if (key !== null && key[i] !== undefined) correct = chosen === key[i];
+
+      var item = document.createElement('div');
+      item.className = 'review-item ' + (correct ? 'ok' : 'no');
       item.style.animationDelay = Math.min(i * 0.03, 0.4) + 's';
 
-      const q = document.createElement('p');
+      var q = document.createElement('p');
       q.className = 'review-q';
       q.textContent = (i + 1) + '. ' + question.q;
 
-      const yours = document.createElement('div');
+      var yours = document.createElement('div');
       yours.className = 'review-line';
       yours.innerHTML =
         '<span class="review-tag">You</span><span>' +
@@ -365,17 +369,15 @@
       item.appendChild(q);
       item.appendChild(yours);
 
-      if (!ok) {
-        const right = document.createElement('div');
+      if (!correct) {
+        var right = document.createElement('div');
         right.className = 'review-line';
         right.innerHTML =
           '<span class="review-tag">Answer</span><span>' +
-          escapeHtml(question.options[question.answer]) +
+          escapeHtml(question.options[key ? key[i] : question.answer]) +
           '</span>';
         item.appendChild(right);
       }
-
-      el.reviewList.appendChild(item);
     });
   }
 
@@ -443,23 +445,32 @@
     el.grantHint.classList.remove('is-error');
   }
 
-  function unlockAdmin() {
-    const ok = Store.unlock(el.adminPass.value);
-
-    if (!ok) {
-      el.adminHint.textContent = 'Wrong password.';
+  async function signInAdmin() {
+    const email = el.adminEmail.value.trim();
+    const password = el.adminPass.value;
+    if (!email || !password) {
+      el.adminHint.textContent = 'Enter both email and password.';
       el.adminHint.classList.add('is-error');
-      shake(el.adminPass);
       return;
     }
-
+    const result = await Store.signInAdmin(email, password);
+    if (!result.ok) {
+      el.adminHint.textContent = result.error || 'Sign-in failed.';
+      el.adminHint.classList.add('is-error');
+      return;
+    }
+    paintAdmin();
     el.adminPass.value = '';
+    el.adminEmail.value = '';
+  }
+
+  async function unlockAdmin() {
+    // Sign-in already happened; just ensure panel is visible.
     paintAdmin();
   }
 
   async function grantRetake() {
     const name = el.grantName.value.trim();
-
     if (!name) {
       el.grantHint.textContent = 'Type the player’s name first.';
       el.grantHint.classList.add('is-error');
@@ -483,7 +494,6 @@
 
   async function removePlayer() {
     const name = el.grantName.value.trim();
-
     if (!name) {
       el.grantHint.textContent = 'Type the player’s name first.';
       el.grantHint.classList.add('is-error');
@@ -575,19 +585,18 @@
     showView(state.finished ? 'result' : 'start');
   });
 
-  el.adminLoginBtn.addEventListener('click', unlockAdmin);
+el.adminLoginBtn.addEventListener('click', signInAdmin);
 
   el.adminPass.addEventListener('keydown', function (event) {
-    if (event.key === 'Enter') unlockAdmin();
+    if (event.key === 'Enter') signInAdmin();
   });
 
-  el.grantBtn.addEventListener('click', grantRetake);
-  el.removeBtn.addEventListener('click', removePlayer);
-  el.clearBtn.addEventListener('click', clearBoard);
-
   el.adminLockBtn.addEventListener('click', function () {
-    Store.lock();
-    paintAdmin();
+    if (isUnlocked()) {
+      signOutAdmin();
+    } else {
+      signInAdmin();
+    }
   });
 
   /* first paint */
