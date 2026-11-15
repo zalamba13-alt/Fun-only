@@ -36,14 +36,16 @@
  *
  *   create policy "read scores"    on scores  for select using (true);
  *   create policy "insert scores"  on scores  for insert with check (true);
+ *   create policy "delete scores"  on scores  for delete using (true);
  *   create policy "read players"   on players for select using (true);
  *   create policy "upsert players" on players for insert with check (true);
  *   create policy "update players" on players for update using (true);
+ *   create policy "delete players" on players for delete using (true);
  *
  * ------------------------------------------------------------------
- * NOTE: these policies are open (anyone can insert). That is fine for a
- * fun quiz among friends. The admin password below is a soft gate, not
- * real security — a determined person could bypass it.
+ * NOTE: these policies are open (anyone can insert or delete). That is
+ * fine for a fun quiz among friends. The admin password below is a soft
+ * gate, not real security — a determined person could bypass it.
  */
 
 const Store = (function () {
@@ -52,8 +54,8 @@ const Store = (function () {
   /* ================== CONFIGURE ME ================== */
 
   const REMOTE = {
-    url: '',        // e.g. 'https://abcdefghijkl.supabase.co'
-    anonKey: '',    // the "anon public" key
+    url: 'https://elwysrmcuysgvpqsvryu.supabase.co',
+    anonKey: 'sb_publishable_8vmqAkbzqj4XgSHtkoW7Eg_-WooCPf9',
     scores: 'scores',
     players: 'players'
   };
