@@ -17,7 +17,8 @@
     locked: false,
     finished: false,
     savedRow: null,   // the row this player just submitted
-    started: false    // true once this attempt has been recorded
+    started: false,   // true once this attempt has been recorded
+    boardSubscription: null
   };
 
   const TOTAL = QUESTIONS.length;
@@ -513,6 +514,24 @@
     el.grantHint.textContent = ok ? 'The board is empty again.' : 'Could not clear the board.';
   }
 
+  /* ---------------- live refresh (polling) ---------------- */
+
+  function startBoardPolling() {
+    if (state.boardSubscription) return;
+    // Refresh the board every 6s while it is open. Cheap and reliable.
+    state.boardSubscription = setInterval(function () {
+      if (el.boardView && el.boardView.classList.contains('active')) {
+        renderBoard();
+      }
+    }, 6000);
+  }
+
+  function stopBoardPolling() {
+    if (!state.boardSubscription) return;
+    clearInterval(state.boardSubscription);
+    state.boardSubscription = null;
+  }
+
   /* ---------------- wiring ---------------- */
 
   el.startBtn.addEventListener('click', startQuiz);
@@ -524,14 +543,17 @@
   el.navBoard.addEventListener('click', function () {
     showView('board');
     renderBoard();
+    startBoardPolling();
   });
 
   el.boardBtn.addEventListener('click', function () {
     showView('board');
     renderBoard();
+    startBoardPolling();
   });
 
   el.boardBack.addEventListener('click', function () {
+    stopBoardPolling();
     showView(state.finished ? 'result' : 'start');
   });
 
