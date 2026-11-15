@@ -898,6 +898,48 @@ body {
   display: block;
 }
 
+/* ---------- admin ---------- */
+
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.admin-lead {
+  margin: 0 0 16px;
+  font-size: 14px;
+  color: var(--text-dim);
+}
+
+.admin-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.admin-actions .btn {
+  flex: 1;
+}
+
+.admin-danger {
+  margin-top: 14px;
+  border-color: rgba(232, 115, 127, 0.28);
+}
+
+.btn-danger {
+  color: #2a0b0f;
+  background: linear-gradient(135deg, #f0909a, var(--rose) 60%, #c95561);
+  box-shadow: 0 12px 28px -12px rgba(232, 115, 127, 0.7);
+}
+
+.admin-lock {
+  margin-top: 14px;
+}
+
+#adminPanel .card + .card {
+  margin-top: 14px;
+}
+
 /* ---------- responsive ---------- */
 
 @media (max-width: 420px) {

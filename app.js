@@ -2,6 +2,7 @@
  * TOBI QUIZ — app logic
  * ---------------------
  * Flow: start → quiz (one question at a time) → result → review / leaderboard
+ * Admin: unlock with a password to grant retakes or clear the board.
  */
 
 (function () {
@@ -15,7 +16,8 @@
     answers: [],      // index chosen per question, or null
     locked: false,
     finished: false,
-    savedRow: null    // the row this player just submitted
+    savedRow: null,   // the row this player just submitted
+    started: false    // true once this attempt has been recorded
   };
 
   const TOTAL = QUESTIONS.length;
@@ -28,9 +30,11 @@
       quiz: document.getElementById('viewQuiz'),
       result: document.getElementById('viewResult'),
       review: document.getElementById('viewReview'),
-      board: document.getElementById('viewBoard')
+      board: document.getElementById('viewBoard'),
+      admin: document.getElementById('viewAdmin')
     },
     navBoard: document.getElementById('navBoard'),
+    navAdmin: document.getElementById('navAdmin'),
     nameInput: document.getElementById('nameInput'),
     startBtn: document.getElementById('startBtn'),
     startHint: document.getElementById('startHint'),
@@ -51,7 +55,7 @@
     statRank: document.getElementById('statRank'),
     statPercent: document.getElementById('statPercent'),
     statPlayers: document.getElementById('statPlayers'),
-    againBtn: document.getElementById('againBtn'),
+    boardBtn: document.getElementById('boardBtn'),
     reviewBtn: document.getElementById('reviewBtn'),
 
     reviewList: document.getElementById('reviewList'),
@@ -60,7 +64,20 @@
     boardBody: document.getElementById('boardBody'),
     boardEmpty: document.getElementById('boardEmpty'),
     boardNote: document.getElementById('boardNote'),
-    boardBack: document.getElementById('boardBack')
+    boardBack: document.getElementById('boardBack'),
+
+    adminBack: document.getElementById('adminBack'),
+    adminLocked: document.getElementById('adminLocked'),
+    adminPanel: document.getElementById('adminPanel'),
+    adminPass: document.getElementById('adminPass'),
+    adminLoginBtn: document.getElementById('adminLoginBtn'),
+    adminHint: document.getElementById('adminHint'),
+    grantName: document.getElementById('grantName'),
+    grantBtn: document.getElementById('grantBtn'),
+    removeBtn: document.getElementById('removeBtn'),
+    grantHint: document.getElementById('grantHint'),
+    clearBtn: document.getElementById('clearBtn'),
+    adminLockBtn: document.getElementById('adminLockBtn')
   };
 
   const RING_LENGTH = 2 * Math.PI * 52; // r = 52 in the SVG
@@ -95,33 +112,66 @@
     return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
   }
 
-  /* ---------------- quiz ---------------- */
+  function shake(node) {
+    node.classList.add('input-shake');
+    setTimeout(function () {
+      node.classList.remove('input-shake');
+    }, 450);
+  }
 
-  function startQuiz() {
+  /* ---------------- start ---------------- */
+
+  async function startQuiz() {
     const typed = el.nameInput.value.trim();
+
     if (!typed) {
       el.startHint.textContent = 'Please enter your name first.';
       el.startHint.classList.add('is-error');
       el.nameInput.focus();
-      el.nameInput.classList.add('input-shake');
-      setTimeout(function () {
-        el.nameInput.classList.remove('input-shake');
-      }, 450);
+      shake(el.nameInput);
       return;
     }
 
     el.startHint.classList.remove('is-error');
-    el.startHint.textContent = 'No time limit. You can retake it as often as you like.';
+    el.startHint.textContent = 'Checking your name…';
+    el.startBtn.disabled = true;
+
+    const status = await Store.attemptStatus(typed);
+
+    el.startBtn.disabled = false;
+
+    if (status.taken && !status.allowed) {
+      el.startHint.textContent =
+        'You have already taken this quiz. Ask Tobi to unlock another attempt.';
+      el.startHint.classList.add('is-error');
+      shake(el.nameInput);
+      return;
+    }
+
+    el.startHint.classList.remove('is-error');
+    el.startHint.textContent = 'Good luck.';
 
     state.name = typed.slice(0, 20);
     state.index = 0;
     state.answers = new Array(TOTAL).fill(null);
     state.locked = false;
     state.finished = false;
+    state.savedRow = null;
+    state.started = true;
+
+    // Burn the attempt now, so closing the tab mid-quiz still counts.
+    // If this fails we let them play anyway rather than blocking them.
+    try {
+      await Store.recordAttempt(state.name);
+    } catch (err) {
+      console.warn('[quiz] could not record the attempt.', err);
+    }
 
     showView('quiz');
     renderQuestion();
   }
+
+  /* ---------------- quiz ---------------- */
 
   function renderQuestion() {
     const question = QUESTIONS[state.index];
@@ -259,10 +309,10 @@
     el.statRank.textContent = '—';
     el.statPlayers.textContent = '—';
 
-    const saved = await Store.add({ name: state.name, score: score, total: TOTAL });
+    const saved = await Store.addScore({ name: state.name, score: score, total: TOTAL });
     state.savedRow = saved.row;
 
-    const rows = await Store.list();
+    const rows = await Store.listScores();
     const rank = findRank(rows, state.savedRow);
 
     el.statRank.textContent = rank ? '#' + rank : '—';
@@ -336,12 +386,12 @@
 
     if (!Store.isRemote()) {
       el.boardNote.textContent =
-        'This board only shows scores from this device. To see everyone’s scores, connect a free Supabase project in store.js (5 minutes, no card).';
+        'This board only shows scores from this device. Connect a free Supabase project in store.js to share one board between every player.';
     } else {
       el.boardNote.textContent = 'Live board — every player who finishes the quiz appears here.';
     }
 
-    const rows = await Store.list();
+    const rows = await Store.listScores();
 
     if (!rows.length) {
       el.boardEmpty.classList.add('is-shown');
@@ -380,6 +430,89 @@
     });
   }
 
+  /* ---------------- admin ---------------- */
+
+  function paintAdmin() {
+    const unlocked = Store.isUnlocked();
+    el.adminLocked.hidden = unlocked;
+    el.adminPanel.hidden = !unlocked;
+    el.adminHint.textContent = '';
+    el.adminHint.classList.remove('is-error');
+    el.grantHint.textContent = '';
+    el.grantHint.classList.remove('is-error');
+  }
+
+  function unlockAdmin() {
+    const ok = Store.unlock(el.adminPass.value);
+
+    if (!ok) {
+      el.adminHint.textContent = 'Wrong password.';
+      el.adminHint.classList.add('is-error');
+      shake(el.adminPass);
+      return;
+    }
+
+    el.adminPass.value = '';
+    paintAdmin();
+  }
+
+  async function grantRetake() {
+    const name = el.grantName.value.trim();
+
+    if (!name) {
+      el.grantHint.textContent = 'Type the player’s name first.';
+      el.grantHint.classList.add('is-error');
+      shake(el.grantName);
+      return;
+    }
+
+    el.grantBtn.disabled = true;
+    const ok = await Store.grantRetake(name);
+    el.grantBtn.disabled = false;
+
+    if (ok) {
+      el.grantHint.classList.remove('is-error');
+      el.grantHint.textContent = name + ' can take the quiz again.';
+      el.grantName.value = '';
+    } else {
+      el.grantHint.classList.add('is-error');
+      el.grantHint.textContent = 'Could not save that. Try again.';
+    }
+  }
+
+  async function removePlayer() {
+    const name = el.grantName.value.trim();
+
+    if (!name) {
+      el.grantHint.textContent = 'Type the player’s name first.';
+      el.grantHint.classList.add('is-error');
+      shake(el.grantName);
+      return;
+    }
+
+    el.removeBtn.disabled = true;
+    const ok = await Store.removePlayer(name);
+    el.removeBtn.disabled = false;
+
+    if (ok) {
+      el.grantHint.classList.remove('is-error');
+      el.grantHint.textContent = name + ' and their scores were removed.';
+      el.grantName.value = '';
+    } else {
+      el.grantHint.classList.add('is-error');
+      el.grantHint.textContent = 'Could not remove that player.';
+    }
+  }
+
+  async function clearBoard() {
+    el.clearBtn.disabled = true;
+    const ok = await Store.clearAll();
+    el.clearBtn.disabled = false;
+
+    el.grantHint.classList.remove('is-error');
+    el.grantHint.textContent = ok ? 'The board is empty again.' : 'Could not clear the board.';
+  }
+
   /* ---------------- wiring ---------------- */
 
   el.startBtn.addEventListener('click', startQuiz);
@@ -389,6 +522,11 @@
   });
 
   el.navBoard.addEventListener('click', function () {
+    showView('board');
+    renderBoard();
+  });
+
+  el.boardBtn.addEventListener('click', function () {
     showView('board');
     renderBoard();
   });
@@ -406,10 +544,28 @@
     showView('result');
   });
 
-  el.againBtn.addEventListener('click', function () {
-    el.nameInput.value = state.name;
-    showView('start');
-    el.nameInput.focus();
+  el.navAdmin.addEventListener('click', function () {
+    paintAdmin();
+    showView('admin');
+  });
+
+  el.adminBack.addEventListener('click', function () {
+    showView(state.finished ? 'result' : 'start');
+  });
+
+  el.adminLoginBtn.addEventListener('click', unlockAdmin);
+
+  el.adminPass.addEventListener('keydown', function (event) {
+    if (event.key === 'Enter') unlockAdmin();
+  });
+
+  el.grantBtn.addEventListener('click', grantRetake);
+  el.removeBtn.addEventListener('click', removePlayer);
+  el.clearBtn.addEventListener('click', clearBoard);
+
+  el.adminLockBtn.addEventListener('click', function () {
+    Store.lock();
+    paintAdmin();
   });
 
   /* first paint */
