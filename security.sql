@@ -56,6 +56,8 @@ drop policy if exists "update players" on public.players;
 drop policy if exists "delete players" on public.players;
 drop policy if exists "answer key hidden" on public.quiz_answer_key;
 drop policy if exists "admin users hidden" on public.admin_users;
+-- From a previous run of this same file (keeps it re-runnable):
+drop policy if exists "scores public read" on public.scores;
 
 create policy "scores public read" on public.scores for select to anon, authenticated using (true);
 revoke all on public.scores, public.players, public.quiz_answer_key, public.admin_users from anon, authenticated;
