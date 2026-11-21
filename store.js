@@ -41,12 +41,55 @@ const Store = (function () {
   }
 
   function authHeaders(token) {
-    const t = token || REMOTE.anonKey;
-    return {
+    const headers = {
       apikey: REMOTE.anonKey,
-      Authorization: 'Bearer ' + t,
       'Content-Type': 'application/json'
     };
+    // Only send a real user access token (a JWT) as Bearer. The publishable
+    // key is not a JWT and must only go in `apikey`.
+    const t = token || '';
+    if (t.slice(0, 3) === 'eyJ') headers.Authorization = 'Bearer ' + t;
+    return headers;
+  }
+
+  /* Map a failed Supabase response onto a short, UI-friendly code.
+   * A 404 from PostgREST means the SQL migration never ran — a very different
+   * problem from a connectivity fault, so it must not be labelled 'network'. */
+  function failCode(status, data) {
+    const msg = String(
+      (data && (data.message || data.error_description || data.msg || data.error || data.hint)) || ''
+    );
+    const code = String((data && data.code) || '');
+    if (code === 'PGRST202' || code === 'PGRST205' || status === 404) {
+      return 'not_installed';
+    }
+    if (/invalid api key|no api key|invalid jwt/i.test(msg)) return 'bad_key';
+    if (
+      status === 401 ||
+      status === 403 ||
+      code === '42501' ||
+      /not authorized|permission denied|row-level security/i.test(msg)
+    ) {
+      return 'not_authorized';
+    }
+    if (status >= 500) return 'server_down';
+    if (status === 400 || status === 406 || status === 422) return 'bad_request';
+    return 'http_' + status;
+  }
+
+  /* A thrown fetch (DNS, CORS, offline) is the only true "network" failure. */
+  function isFetchFailure(err) {
+    return !(err && err.status);
+  }
+
+  async function readJson(res) {
+    const text = await res.text();
+    if (!text) return null;
+    try {
+      return JSON.parse(text);
+    } catch (err) {
+      return null;
+    }
   }
 
   /* ---------------- session helpers ---------------- */
@@ -96,6 +139,7 @@ const Store = (function () {
       const err = new Error('RPC ' + fn + ' failed (' + res.status + ')');
       err.status = res.status;
       err.data = data;
+      err.code = failCode(res.status, data);
       throw err;
     }
     return data;
@@ -158,7 +202,7 @@ const Store = (function () {
       return { ok: true, token: out.attempt_token };
     } catch (err) {
       console.warn('[leaderboard] could not start the attempt.', err);
-      return { ok: false, error: 'network' };
+      return { ok: false, error: isFetchFailure(err) ? 'network' : err.code };
     }
   }
 
@@ -200,7 +244,7 @@ const Store = (function () {
       };
     } catch (err) {
       console.warn('[leaderboard] could not submit the answers.', err);
-      return { ok: false, error: 'network' };
+      return { ok: false, error: isFetchFailure(err) ? 'network' : err.code };
     }
   }
 
@@ -289,7 +333,7 @@ const Store = (function () {
         adminVerified = false;
         return { ok: false, error: 'not_authorized' };
       }
-      return { ok: false, error: 'network' };
+      return { ok: false, error: isFetchFailure(err) ? 'network' : err.code };
     }
   }
 
@@ -305,6 +349,65 @@ const Store = (function () {
     return adminCall('admin_clear_quiz_board', {});
   }
 
+  async function listPlayers() {
+    const res = await adminCall('admin_list_quiz_players', {});
+    if (!res.ok) return res;
+    const rows = Array.isArray(res.data) ? res.data : [];
+    return { ok: true, rows: rows };
+  }
+
+  /**
+   * Report what is actually working. Used on load so a missing migration is
+   * reported as such instead of surfacing later as a vague "network" error.
+   * Returns { configured, reachable, table, functions, detail }.
+   */
+  async function healthCheck() {
+    const out = {
+      configured: isRemote(),
+      reachable: false,
+      table: false,
+      functions: false,
+      detail: ''
+    };
+    if (!out.configured) {
+      out.detail = 'REMOTE url/key missing in store.js';
+      return out;
+    }
+
+    try {
+      const res = await fetch(base() + '/rest/v1/scores?select=name&limit=1', {
+        headers: authHeaders()
+      });
+      const data = await readJson(res);
+      out.reachable = true;
+      out.table = res.ok;
+      if (!res.ok) out.detail = (data && (data.message || data.hint)) || 'HTTP ' + res.status;
+    } catch (err) {
+      out.detail = 'Cannot reach ' + base() + ' (' + err.message + ')';
+      return out;
+    }
+
+    try {
+      const res = await fetch(base() + '/rest/v1/rpc/check_quiz_attempt', {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({ p_name: '__healthcheck__' })
+      });
+      out.functions = res.ok;
+      if (!res.ok) {
+        const data = await readJson(res);
+        out.detail =
+          res.status === 404
+            ? 'security.sql has not been applied to this project'
+            : (data && (data.message || data.hint)) || 'HTTP ' + res.status;
+      }
+    } catch (err) {
+      out.detail = 'RPC check failed: ' + err.message;
+    }
+
+    return out;
+  }
+
   return {
     listScores: listScores,
     startAttempt: startAttempt,
@@ -315,6 +418,8 @@ const Store = (function () {
     grantRetake: grantRetake,
     removePlayer: removePlayer,
     clearAll: clearAll,
+    listPlayers: listPlayers,
+    healthCheck: healthCheck,
     isRemote: isRemote,
     isUnlocked: isUnlocked,
     adminEmail: function () { return session ? session.email : ''; },

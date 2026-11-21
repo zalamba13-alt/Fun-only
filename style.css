@@ -906,6 +906,41 @@ body {
   gap: 8px;
 }
 
+/* Setup / backend health banner */
+.notice {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 18px;
+  padding: 12px 14px;
+  border: 1px solid rgba(232, 180, 99, 0.35);
+  border-radius: var(--radius);
+  background: rgba(232, 180, 99, 0.08);
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--gold-soft);
+}
+
+.notice-dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--gold);
+  box-shadow: 0 0 10px rgba(232, 180, 99, 0.8);
+}
+
+.notice.is-error {
+  border-color: rgba(232, 115, 127, 0.4);
+  background: rgba(232, 115, 127, 0.08);
+  color: var(--rose);
+}
+
+.notice.is-error .notice-dot {
+  background: var(--rose);
+  box-shadow: 0 0 10px rgba(232, 115, 127, 0.8);
+}
+
 .admin-lead {
   margin: 0 0 16px;
   font-size: 14px;
@@ -932,8 +967,61 @@ body {
   box-shadow: 0 12px 28px -12px rgba(232, 115, 127, 0.7);
 }
 
-.admin-lock {
-  margin-top: 14px;
+.admin-session .admin-lead {
+  margin-bottom: 12px;
+}
+
+.admin-players {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.admin-player-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.03);
+  font-size: 13px;
+}
+
+.admin-player-name {
+  font-weight: 600;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-player-meta {
+  font-size: 11.5px;
+  color: var(--text-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.admin-player-badge {
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.admin-player-badge.is-done {
+  color: var(--teal);
+  background: rgba(79, 209, 197, 0.12);
+}
+
+.admin-player-badge.is-retake {
+  color: var(--gold);
+  background: rgba(232, 180, 99, 0.12);
 }
 
 #adminPanel .card + .card {

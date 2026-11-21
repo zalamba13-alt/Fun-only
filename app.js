@@ -70,6 +70,7 @@
     adminBack: document.getElementById('adminBack'),
     adminLocked: document.getElementById('adminLocked'),
     adminPanel: document.getElementById('adminPanel'),
+    adminEmail: document.getElementById('adminEmail'),
     adminPass: document.getElementById('adminPass'),
     adminLoginBtn: document.getElementById('adminLoginBtn'),
     adminHint: document.getElementById('adminHint'),
@@ -78,7 +79,13 @@
     removeBtn: document.getElementById('removeBtn'),
     grantHint: document.getElementById('grantHint'),
     clearBtn: document.getElementById('clearBtn'),
-    adminLockBtn: document.getElementById('adminLockBtn')
+    adminLockBtn: document.getElementById('adminLockBtn'),
+    adminWho: document.getElementById('adminWho'),
+    adminPlayers: document.getElementById('adminPlayers'),
+    adminPlayersEmpty: document.getElementById('adminPlayersEmpty'),
+    adminRefreshBtn: document.getElementById('adminRefreshBtn'),
+    setupNotice: document.getElementById('setupNotice'),
+    setupNoticeText: document.getElementById('setupNoticeText')
   };
 
   const RING_LENGTH = 2 * Math.PI * 52; // r = 52 in the SVG
@@ -122,7 +129,29 @@
 
   /* ---------------- start ---------------- */
 
-async function startQuiz() {
+  /* Turn a store error code into a truthful, human-readable message. */
+  function backendMessage(code, fallback) {
+    switch (code) {
+      case 'offline':
+        return 'The leaderboard is not configured, so the quiz cannot start.';
+      case 'network':
+        return 'Could not reach the server. Check your connection and try again.';
+      case 'not_installed':
+        return 'The database is not set up yet: run security.sql in the Supabase SQL editor.';
+      case 'bad_key':
+        return 'Supabase rejected the API key in store.js. Copy the publishable key again.';
+      case 'server_down':
+        return 'Supabase is not responding right now. Try again in a moment.';
+      case 'bad_request':
+        return 'The database rejected the request. Re-run security.sql to update its functions.';
+      case 'not_authorized':
+        return 'The database rejected this device. Check the Supabase setup in security.sql.';
+      default:
+        return fallback || 'Something went wrong (' + (code || 'unknown') + ').';
+    }
+  }
+
+  async function startQuiz() {
     const typed = el.nameInput.value.trim();
 
     if (!typed) {
@@ -140,7 +169,7 @@ async function startQuiz() {
     el.startBtn.disabled = false;
 
     if (!start.ok) {
-      el.startHint.textContent = 'Could not reserve an attempt: ' + (start.error || '');
+      el.startHint.textContent = backendMessage(start.error, 'Could not reserve an attempt.');
       el.startHint.classList.add('is-error');
       shake(el.nameInput);
       return;
@@ -244,7 +273,7 @@ async function startQuiz() {
       const mark = btn.querySelector('.option-mark');
       mark.textContent = '';
 
-      if (i === choice) {
+      if (Number(btn.dataset.index) === choice) {
         btn.classList.add('is-selected');
       } else {
         btn.classList.add('is-dimmed');
@@ -276,7 +305,7 @@ async function finish() {
       el.resultScore.textContent = '0';
       el.resultTotal.textContent = '/ ' + TOTAL;
       el.statPercent.textContent = '0%';
-      el.resultSub.textContent = 'Could not submit answers: ' + (submitted.error || '');
+      el.resultSub.textContent = backendMessage(submitted.error, 'Could not submit answers.');
       el.statRank.textContent = '—';
       el.statPlayers.textContent = '—';
       return;
@@ -304,14 +333,22 @@ async function finish() {
     el.resultTitle.textContent = v.title;
     el.resultSub.textContent = v.sub;
 
-    el.statRank.textContent = '—';
-    el.statPlayers.textContent = '—';
-
     // Store the server's answer key for the review screen.
     state.reviewKey = submitted.key || null;
+    state.savedRow = {
+      name: state.name,
+      score: score,
+      total: total,
+      created_at: submitted.created_at
+    };
 
-    // Show the review view.
-    renderReview();
+    // Fill in rank and total players from the live board.
+    const rows = await Store.listScores();
+    if (Array.isArray(rows)) {
+      const rank = findRank(rows, state.savedRow);
+      el.statRank.textContent = rank ? String(rank) : '—';
+      el.statPlayers.textContent = String(rows.length);
+    }
   }
 
   function findRank(rows, row) {
@@ -338,10 +375,12 @@ function renderReview() {
     el.reviewList.innerHTML = '';
 
     // Use the key that was returned from submit_quiz_attempt, if available.
+    // The store returns a 0-based array (index = question position).
     var key = null;
     if (state.reviewKey) {
+      key = [];
       for (var i = 0; i < TOTAL; i++) {
-        var v = state.reviewKey[String(i + 1)];
+        var v = state.reviewKey[i];
         if (v !== undefined) key[i] = v;
       }
     }
@@ -349,7 +388,7 @@ function renderReview() {
     QUESTIONS.forEach(function (question, i) {
       var chosen = state.answers[i];
       var correct = false;
-      if (key !== null && key[i] !== undefined) correct = chosen === key[i];
+      if (key && key[i] !== undefined) correct = chosen === key[i];
 
       var item = document.createElement('div');
       item.className = 'review-item ' + (correct ? 'ok' : 'no');
@@ -374,7 +413,7 @@ function renderReview() {
         right.className = 'review-line';
         right.innerHTML =
           '<span class="review-tag">Answer</span><span>' +
-          escapeHtml(question.options[key ? key[i] : question.answer]) +
+          escapeHtml(question.options[key && key[i] !== undefined ? key[i] : question.answer]) +
           '</span>';
         item.appendChild(right);
       }
@@ -443,6 +482,64 @@ function renderReview() {
     el.adminHint.classList.remove('is-error');
     el.grantHint.textContent = '';
     el.grantHint.classList.remove('is-error');
+    if (unlocked) {
+      el.adminWho.textContent = Store.adminEmail() || 'admin';
+      renderAdminPlayers();
+    }
+  }
+
+  function adminActionMessage(code) {
+    switch (code) {
+      case 'not_authorized':
+        return 'Your session expired or this account lost admin rights. Sign in again.';
+      case 'not_signed_in':
+        return 'Sign in again to continue.';
+      case 'network':
+        return 'Could not reach the server. Try again.';
+      case 'not_installed':
+        return 'The admin functions are missing: run security.sql in the Supabase SQL editor.';
+      case 'bad_key':
+        return 'Supabase rejected the API key in store.js.';
+      case 'server_down':
+        return 'Supabase is not responding right now. Try again.';
+      default:
+        return 'Could not save that (' + (code || 'unknown') + ').';
+    }
+  }
+
+  async function renderAdminPlayers() {
+    const res = await Store.listPlayers();
+    if (!res.ok) {
+      el.adminPlayers.innerHTML = '';
+      el.adminPlayersEmpty.hidden = false;
+      el.adminPlayersEmpty.textContent = adminActionMessage(res.error);
+      return;
+    }
+    const rows = res.rows || [];
+    el.adminPlayersEmpty.hidden = rows.length > 0;
+    el.adminPlayersEmpty.textContent = 'No players yet.';
+
+    el.adminPlayers.innerHTML = rows
+      .map(function (p) {
+        var badge = p.submitted
+          ? '<span class="admin-player-badge is-done">done</span>'
+          : p.retake_allowed
+            ? '<span class="admin-player-badge is-retake">retake</span>'
+            : '<span class="admin-player-badge">in progress</span>';
+        var meta = p.submitted
+          ? p.attempts + ' attempt' + (p.attempts === 1 ? '' : 's')
+          : p.retake_allowed
+            ? 'retake allowed'
+            : 'started, not submitted';
+        return (
+          '<div class="admin-player-row">' +
+          '<span class="admin-player-name">' + escapeHtml(p.name) + '</span>' +
+          '<span class="admin-player-meta">' + meta + '</span>' +
+          badge +
+          '</div>'
+        );
+      })
+      .join('');
   }
 
   async function signInAdmin() {
@@ -455,18 +552,16 @@ function renderReview() {
     }
     const result = await Store.signInAdmin(email, password);
     if (!result.ok) {
-      el.adminHint.textContent = result.error || 'Sign-in failed.';
+      el.adminHint.textContent =
+        result.error === 'bad_login'
+          ? 'That email and password do not match an account.'
+          : backendMessage(result.error, 'Sign-in failed.');
       el.adminHint.classList.add('is-error');
       return;
     }
     paintAdmin();
     el.adminPass.value = '';
     el.adminEmail.value = '';
-  }
-
-  async function unlockAdmin() {
-    // Sign-in already happened; just ensure panel is visible.
-    paintAdmin();
   }
 
   async function grantRetake() {
@@ -479,16 +574,17 @@ function renderReview() {
     }
 
     el.grantBtn.disabled = true;
-    const ok = await Store.grantRetake(name);
+    const res = await Store.grantRetake(name);
     el.grantBtn.disabled = false;
 
-    if (ok) {
+    if (res.ok) {
       el.grantHint.classList.remove('is-error');
       el.grantHint.textContent = name + ' can take the quiz again.';
       el.grantName.value = '';
+      renderAdminPlayers();
     } else {
       el.grantHint.classList.add('is-error');
-      el.grantHint.textContent = 'Could not save that. Try again.';
+      el.grantHint.textContent = adminActionMessage(res.error);
     }
   }
 
@@ -502,26 +598,33 @@ function renderReview() {
     }
 
     el.removeBtn.disabled = true;
-    const ok = await Store.removePlayer(name);
+    const res = await Store.removePlayer(name);
     el.removeBtn.disabled = false;
 
-    if (ok) {
+    if (res.ok) {
       el.grantHint.classList.remove('is-error');
       el.grantHint.textContent = name + ' and their scores were removed.';
       el.grantName.value = '';
+      renderAdminPlayers();
     } else {
       el.grantHint.classList.add('is-error');
-      el.grantHint.textContent = 'Could not remove that player.';
+      el.grantHint.textContent = adminActionMessage(res.error);
     }
   }
 
   async function clearBoard() {
     el.clearBtn.disabled = true;
-    const ok = await Store.clearAll();
+    const res = await Store.clearAll();
     el.clearBtn.disabled = false;
 
-    el.grantHint.classList.remove('is-error');
-    el.grantHint.textContent = ok ? 'The board is empty again.' : 'Could not clear the board.';
+    el.grantHint.classList.add('is-error');
+    el.grantHint.textContent = res.ok
+      ? 'The board is empty again.'
+      : adminActionMessage(res.error);
+    if (res.ok) {
+      el.grantHint.classList.remove('is-error');
+      renderAdminPlayers();
+    }
   }
 
   /* ---------------- live refresh (polling) ---------------- */
@@ -530,7 +633,7 @@ function renderReview() {
     if (state.boardSubscription) return;
     // Refresh the board every 6s while it is open. Cheap and reliable.
     state.boardSubscription = setInterval(function () {
-      if (el.boardView && el.boardView.classList.contains('active')) {
+      if (el.views.board.classList.contains('is-active')) {
         renderBoard();
       }
     }, 6000);
@@ -592,11 +695,43 @@ el.adminLoginBtn.addEventListener('click', signInAdmin);
   });
 
   el.adminLockBtn.addEventListener('click', function () {
-    if (isUnlocked()) {
-      signOutAdmin();
-    } else {
-      signInAdmin();
+    Store.signOutAdmin();
+    paintAdmin();
+  });
+
+  el.adminRefreshBtn.addEventListener('click', function () {
+    el.adminRefreshBtn.disabled = true;
+    renderAdminPlayers().finally(function () {
+      el.adminRefreshBtn.disabled = false;
+    });
+  });
+
+  /* Restore a previously signed-in admin session (e.g. after a refresh). */
+  Store.restoreAdmin().then(function () {
+    paintAdmin();
+  });
+
+  /* Diagnose the backend once on load so a missing migration is reported
+   * up front instead of surfacing later as a vague "network" error. */
+  Store.healthCheck().then(function (h) {
+    if (!el.setupNotice || !el.setupNoticeText) return;
+    if (h.configured && h.reachable && h.table && h.functions) {
+      el.setupNotice.hidden = true;
+      return;
     }
+    var msg;
+    if (!h.configured) {
+      msg = 'The leaderboard is not configured (store.js).';
+    } else if (!h.reachable) {
+      msg = 'Cannot reach Supabase. Check your connection.';
+    } else if (!h.table) {
+      msg = 'Supabase is reachable but the scores table is missing. Run security.sql.';
+    } else {
+      msg = 'The database functions are missing: run security.sql in the Supabase SQL editor.';
+    }
+    el.setupNoticeText.textContent = msg;
+    el.setupNotice.classList.toggle('is-error', h.reachable && !h.table);
+    el.setupNotice.hidden = false;
   });
 
   /* first paint */

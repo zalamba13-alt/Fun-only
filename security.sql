@@ -84,7 +84,11 @@ declare r public.players%rowtype;
 begin
  select * into r from public.players where lower(name)=lower(btrim(coalesce(p_name,'')));
  if not found then return jsonb_build_object('taken',false,'attempts',0,'allowed',true); end if;
- return jsonb_build_object('taken',r.attempts > 0 and not r.retake_allowed,'attempts',r.attempts,'allowed',r.retake_allowed);
+ return jsonb_build_object(
+   'taken', r.submitted and not r.retake_allowed,
+   'attempts', r.attempts,
+   'allowed', (not r.submitted) or r.retake_allowed
+ );
 end; $$;
 
 -- Reserve one attempt and issue an unguessable per-attempt token.
@@ -96,14 +100,17 @@ begin
  if char_length(n)<2 or char_length(n)>20 then return jsonb_build_object('ok',false,'error','invalid_name'); end if;
  insert into public.players(name,attempts,retake_allowed,last_attempt,attempt_token,submitted)
  values(n,1,false,now(),tok,false)
- on conflict(name) do update set
-   attempts=public.players.attempts+1,
-   retake_allowed=false,
-   last_attempt=now(),
-   attempt_token=tok,
-   submitted=false
- where public.players.attempts=0 or public.players.retake_allowed=true
- returning * into r;
+  on conflict (lower(name)) do update set
+    attempts=public.players.attempts+1,
+    retake_allowed=false,
+    last_attempt=now(),
+    attempt_token=tok,
+    submitted=false
+  -- Blocked only once the name has a SUBMITTED score. An attempt that was
+  -- started and then abandoned (tab closed, refresh) may be resumed, otherwise
+  -- the player would be locked out with no score on the board.
+  where public.players.submitted=false or public.players.retake_allowed=true
+  returning * into r;
  if not found then return jsonb_build_object('ok',false,'error','already_played'); end if;
  return jsonb_build_object('ok',true,'attempt_token',tok);
 end; $$;
@@ -126,7 +133,8 @@ begin
  into total_q,points from public.quiz_answer_key;
  if total_q=0 then return jsonb_build_object('ok',false,'error','answer_key_missing'); end if;
   update public.players set submitted=true where lower(name)=lower(n);
-  insert into public.scores(name,score,total) values(n,points,total_q) returning * into saved;
+  -- Use the stored (canonical) name so the board and the player table always match.
+  insert into public.scores(name,score,total) values(r.name,points,total_q) returning * into saved;
   return jsonb_build_object(
     'ok',true,
     'score',saved.score,
@@ -144,10 +152,10 @@ declare n text:=btrim(coalesce(p_name,''));
 begin
  if not public._is_quiz_admin() then raise exception 'not authorized'; end if;
  if char_length(n)<2 or char_length(n)>20 then raise exception 'invalid name'; end if;
- insert into public.players(name,attempts,retake_allowed,last_attempt,submitted)
- values(n,0,true,now(),false)
- on conflict(name) do update set retake_allowed=true;
- return jsonb_build_object('ok',true);
+  insert into public.players(name,attempts,retake_allowed,last_attempt,submitted)
+  values(n,0,true,now(),false)
+  on conflict (lower(name)) do update set retake_allowed=true;
+  return jsonb_build_object('ok',true);
 end; $$;
 create or replace function public.admin_remove_quiz_player(p_name text)
 returns jsonb language plpgsql security definer set search_path = public
@@ -158,6 +166,24 @@ begin
  delete from public.scores where lower(name)=lower(n);
  delete from public.players where lower(name)=lower(n);
  return jsonb_build_object('ok',true);
+end; $$;
+create or replace function public.admin_list_quiz_players()
+returns jsonb language plpgsql security definer set search_path = public
+as $$
+declare players jsonb;
+begin
+ if not public._is_quiz_admin() then raise exception 'not authorized'; end if;
+ select coalesce(jsonb_agg(
+   jsonb_build_object(
+     'name', p.name,
+     'attempts', p.attempts,
+     'retake_allowed', p.retake_allowed,
+     'last_attempt', p.last_attempt,
+     'submitted', p.submitted
+   ) order by p.name
+ ), '[]'::jsonb)
+ into players from public.players p;
+ return players;
 end; $$;
 create or replace function public.admin_clear_quiz_board()
 returns jsonb language plpgsql security definer set search_path = public
@@ -175,11 +201,36 @@ revoke all on function public.submit_quiz_attempt(text,uuid,jsonb) from public;
 revoke all on function public.admin_grant_quiz_retake(text) from public;
 revoke all on function public.admin_remove_quiz_player(text) from public;
 revoke all on function public.admin_clear_quiz_board() from public;
+revoke all on function public.admin_list_quiz_players() from public;
 grant execute on function public.check_quiz_attempt(text) to anon,authenticated;
 grant execute on function public.start_quiz_attempt(text) to anon,authenticated;
 grant execute on function public.submit_quiz_attempt(text,uuid,jsonb) to anon,authenticated;
 grant execute on function public.admin_grant_quiz_retake(text) to authenticated;
 grant execute on function public.admin_remove_quiz_player(text) to authenticated;
 grant execute on function public.admin_clear_quiz_board() to authenticated;
+grant execute on function public.admin_list_quiz_players() to authenticated;
 
 -- IMPORTANT: after creating the Auth user, allowlist it in admin_users using the SQL above.
+
+-- PostgREST caches the schema. Without this the new RPCs keep returning 404
+-- ("Could not find the function ... in the schema cache") until the API restarts.
+notify pgrst, 'reload schema';
+
+-- VERIFY: expect 9 rows, all present = true. If any line is false, that piece
+-- did not get created and the matching part of the site will fail.
+select 'table  public.' || t as item,
+       (to_regclass('public.' || t) is not null) as present
+from unnest(array['scores','players','quiz_answer_key','admin_users']) as t
+union all
+select 'rpc    public.' || f,
+       exists (
+         select 1 from pg_proc p
+         join pg_namespace n on n.oid = p.pronamespace
+         where n.nspname = 'public' and p.proname = f
+       )
+from unnest(array[
+  'check_quiz_attempt','start_quiz_attempt','submit_quiz_attempt','is_quiz_admin',
+  'admin_grant_quiz_retake','admin_remove_quiz_player','admin_clear_quiz_board',
+  'admin_list_quiz_players','_is_quiz_admin'
+]) as f
+order by 1;

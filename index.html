@@ -27,6 +27,12 @@
       </div>
     </header>
 
+    <!-- Shown only when the Supabase backend is unreachable or not migrated. -->
+    <div class="notice" id="setupNotice" role="status" hidden>
+      <span class="notice-dot" aria-hidden="true"></span>
+      <span class="notice-text" id="setupNoticeText"></span>
+    </div>
+
     <!-- Start -->
     <section class="view view-start is-active" id="viewStart">
       <div class="card card-hero">
@@ -176,11 +182,15 @@
           </label>
           <button class="btn btn-primary btn-block" id="adminLoginBtn" type="button">Unlock</button>
           <p class="hint" id="adminHint"></p>
-          <button class="btn btn-ghost btn-block admin-lock" id="adminLockBtn" type="button">Sign out</button>
         </div>
 
         <!-- unlocked state -->
         <div id="adminPanel" hidden>
+          <div class="card admin-session">
+            <p class="admin-lead">Signed in as <strong id="adminWho"></strong></p>
+            <button class="btn btn-ghost btn-block" id="adminLockBtn" type="button">Sign out</button>
+          </div>
+
           <div class="card">
             <p class="admin-lead">Allow someone to take the quiz again.</p>
             <label class="field">
@@ -199,6 +209,13 @@
               <button class="btn btn-ghost" id="removeBtn" type="button">Remove player</button>
             </div>
             <p class="hint" id="grantHint"></p>
+          </div>
+
+          <div class="card">
+            <p class="admin-lead">Players on record</p>
+            <div class="admin-players" id="adminPlayers"></div>
+            <p class="empty" id="adminPlayersEmpty" hidden>No players yet.</p>
+            <button class="btn btn-ghost btn-block" id="adminRefreshBtn" type="button">Refresh list</button>
           </div>
 
           <div class="card admin-danger">
